@@ -86,11 +86,12 @@
     // --- FIX END
 
     // Data storage (for real-time updates)
-    let events = [];
-    let spotlights = [];
-    let volunteerNeeds = [];
-    let localBusinesses = [];
-    let civicIssues = []; // NEW: For Local Civic Summaries
+let events = [];
+let spotlights = [];
+let volunteerNeeds = [];
+let localBusinesses = [];
+let civicIssues = []; // NEW: For Local Civic Summaries
+let isMobileMenuOpen = false; // NEW: State for mobile menu
 
     // Utility to handle bilingual content lookup
     const t = (key) => LANG_CONTENT[key] ? LANG_CONTENT[key][currentLang] : `MISSING_KEY:${key}`;
@@ -325,6 +326,14 @@
         currentPage = getPageFromPath(path);
         // Safely update the URL hash
         window.location.hash = path;
+        // Close the mobile menu after navigation
+        isMobileMenuOpen = false; 
+        renderApp();
+    };
+
+    // NEW: Function to toggle the mobile menu state
+    window.toggleMobileMenu = () => {
+        isMobileMenuOpen = !isMobileMenuOpen;
         renderApp();
     };
 
@@ -379,7 +388,32 @@
                             class="text-sm font-bold w-12 h-8 rounded-full transition-colors ${currentLang === 'bn' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'} shadow-md">
                             ${t('language_toggle')}
                         </button>
-                        </div>
+
+                        <button type="button" onclick="toggleMobileMenu()" 
+                            class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500" 
+                            aria-expanded="${isMobileMenuOpen}">
+                            <svg class="${isMobileMenuOpen ? 'hidden' : 'block'} h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                            <svg class="${isMobileMenuOpen ? 'block' : 'hidden'} h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="${isMobileMenuOpen ? 'block' : 'hidden'} md:hidden border-t border-gray-100 pb-2">
+                <div class="pt-2 pb-3 space-y-1 px-2">
+                    ${navItems.map(item => `
+                        <a href="#${item.path}" 
+                            onclick="event.preventDefault(); navigateTo('${item.path}')"
+                            class="block px-3 py-2 rounded-md text-base font-medium transition-colors
+                            ${currentPage === (item.key === 'nav_admin' ? 'admin' : item.key.replace('nav_', '').split('-')[0]) ? 'nav-active' : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'}"
+                        >
+                            ${t(item.key)}
+                        </a>
+                    `).join('')}
                 </div>
             </div>
         `;
