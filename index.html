@@ -90,6 +90,7 @@
     let spotlights = [];
     let volunteerNeeds = [];
     let localBusinesses = [];
+    let civicIssues = []; // NEW: For Local Civic Summaries
 
     // Utility to handle bilingual content lookup
     const t = (key) => LANG_CONTENT[key] ? LANG_CONTENT[key][currentLang] : `MISSING_KEY:${key}`;
@@ -108,8 +109,8 @@
         'no_content_available': { 'en': 'No content available right now.', 'bn': 'বর্তমানে কোনো কন্টেন্ট নেই।' },
 
         // Home Page (Part IV.A)
-        'hero_headline': { 'en': 'Connecting the Bangladeshi Community in Michigan, Where You Live.', 'bn': 'মিশিগানে বসবাসরত বাংলাদেশী কমিউনিটিকে একসূত্রে গাঁথা।' },
-        'hero_body': { 'en': 'Your reliable source for local news, events, and essential community resources across Warren, Sterling Heights, and Metro Detroit.', 'bn': 'স্থানীয় খবর, ইভেন্ট এবং মেট্রো ডেট্রয়েট, ওয়ারেন ও স্টার্লিং হাইটসের আশেপাশে প্রয়োজনীয় কমিউনিটি রিসোর্সের জন্য আপনার নির্ভরযোগ্য ঠিকানা।' },
+        'hero_headline': { 'en': 'Bangladeshi American Forum - Michigan', 'bn': 'বাংলাদেশি আমেরিকান ফোরাম - মিশিগান' },
+        'hero_body': { 'en': 'Connecting the Bangladeshi Community in Michigan, Where You Live. Your reliable source for local news, events, and essential community resources across Warren, Sterling Heights, and Metro Detroit.', 'bn': 'মিশিগানে বসবাসরত বাংলাদেশী কমিউনিটিকে একসূত্রে গাঁথা। স্থানীয় খবর, ইভেন্ট এবং মেট্রো ডেট্রয়েট, ওয়ারেন ও স্টার্লিং হাইটসের আশেপাশে প্রয়োজনীয় কমিউনিটি রিসোর্সের জন্য আপনার নির্ভরযোগ্য ঠিকানা।' },
         'mission_title': { 'en': 'Our Mission', 'bn': 'আমাদের মিশন' },
         'mission_body': { 'en': 'To assist the Bangladeshi American Muslim community by prioritizing issues concerning their welfare and interests, founded upon core Islamic values.', 'bn': 'ইসলামী মূল্যবোধের ভিত্তিতে বাংলাদেশি আমেরিকান মুসলমানদের স্বার্থসংশ্লিষ্ট বিষয়গুলোকে অগ্রাধিকার দিয়ে কমিউনিটিকে সহযোগিতা করা।' },
         'vision_title': { 'en': 'Our Vision', 'bn': 'আমাদের ভিশন' },
@@ -195,6 +196,10 @@
         'type_mentor_request': { 'en': '6. Mentorship Request', 'bn': '৬. মেন্টরশিপের অনুরোধ' },
         'type_inquiry': { 'en': '7. General Inquiry', 'bn': '৭. সাধারণ জিজ্ঞাসা' },
         'type_spotlight': { 'en': '8. Local Spotlight Nomination', 'bn': '৮. স্থানীয় স্পটলাইট নমিনেশন' },
+        'type_inquiry': { 'en': '7. General Inquiry', 'bn': '৭. সাধারণ জিজ্ঞাসা' },
+        'type_spotlight': { 'en': '8. Local Spotlight Nomination', 'bn': '৮. স্থানীয় স্পটলাইট নমিনেশন' },
+        // NEW: Admin Portal Nav Link Text
+        'nav_admin': { 'en': 'Admin Portal', 'bn': 'এডমিন পোর্টাল' },
     };
 
     const SUBMISSION_FIELDS = {
@@ -209,6 +214,7 @@
     };
 
     // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
+    const ADMIN_USER_ID = 'jqcqQkBCDURzaTi5giGltZeCq2n1';
     const initializeAppAndAuth = async () => {
         try {
             setLogLevel('debug'); // Enable Firestore logging
@@ -242,6 +248,17 @@
     const setupFirestoreListeners = () => {
         if (!isAuthReady) return;
 
+        // New: Admin listener for all submissions (only fetched for admin user later)
+        if (userId === ADMIN_USER_ID) {
+            onSnapshot(collection(db, getUserCollectionPath()), (snapshot) => {
+                window.adminSubmissions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                window.adminSubmissions.sort((a, b) => b.submitted_at.toMillis() - a.submitted_at.toMillis());
+                renderApp();
+            }, (error) => console.error("Error fetching admin submissions:", error));
+        }
+
+        // 1. Events & Calendar (Public)
+
         // 1. Events & Calendar (Public)
         onSnapshot(collection(db, getPublicCollectionPath('events')), (snapshot) => {
             events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -267,7 +284,13 @@
             renderApp();
         }, (error) => console.error("Error fetching local businesses:", error));
 
-        // Note: Civic Issues (civic_issues) and Leadership (leadership) could be added here similarly.
+        // 5. Civic Issues (Public) - NEW
+        onSnapshot(collection(db, getPublicCollectionPath('civic_issues')), (snapshot) => {
+            civicIssues = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderApp();
+        }, (error) => console.error("Error fetching civic issues:", error));
+
+        // Note: Leadership (leadership) could be added here similarly.
     };
 
     // --- LANGUAGE SWITCHING (attached to window) ---
@@ -280,12 +303,15 @@
     };
 
     // --- ROUTING & PAGE RENDERING (Using Hash-based routing to avoid SecurityError) ---
+    // The ADMIN_USER_ID is defined above near Firebase config for easy modification.
+
     const routeMap = {
         '/': 'home',
         '/spotlight': 'spotlight',
         '/events-and-issues': 'events',
         '/volunteer': 'volunteer',
         '/submit-content': 'submit',
+        '/admin-portal': 'admin', // NEW: Admin Route
     };
 
     const getPageFromPath = (path) => {
@@ -321,6 +347,12 @@
             { path: '/volunteer', key: 'nav_volunteer' },
             { path: '/submit-content', key: 'nav_submit' },
         ];
+        
+        // Add Admin Portal link if the current user is the admin
+        if (userId === ADMIN_USER_ID) {
+             navItems.push({ path: '/admin-portal', key: 'nav_admin' });
+        }
+
 
         // Determine the target language for the toggle button
         const targetLang = currentLang === 'en' ? 'bn' : 'en';
@@ -330,28 +362,24 @@
                 <div class="flex justify-between items-center h-20">
                     <a href="#/" onclick="event.preventDefault(); navigateTo('/')" class="text-2xl font-bold text-green-700 hover:text-green-900 transition-colors rounded-lg p-2">BAF-M</a>
 
-                    <!-- Desktop Nav -->
                     <nav class="hidden md:flex space-x-2">
                         ${navItems.map(item => `
                             <a href="#${item.path}"
                                 onclick="event.preventDefault(); navigateTo('${item.path}')"
                                 class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors
-                                ${currentPage === item.key.replace('nav_', '').split('-')[0] ? 'nav-active' : 'hover:bg-gray-100 rounded-full'}"
+                                ${currentPage === (item.key === 'nav_admin' ? 'admin' : item.key.replace('nav_', '').split('-')[0]) ? 'nav-active' : 'hover:bg-gray-100 rounded-full'}"
                             >
                                 ${t(item.key)}
                             </a>
                         `).join('')}
                     </nav>
 
-                    <!-- Language Toggle & Mobile Menu -->
                     <div class="flex items-center space-x-4">
-                        <!-- FIX: Call setLanguage directly with the target language to avoid relying on currentLang in the inline handler -->
                         <button onclick="setLanguage('${targetLang}')"
                             class="text-sm font-bold w-12 h-8 rounded-full transition-colors ${currentLang === 'bn' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'} shadow-md">
                             ${t('language_toggle')}
                         </button>
-                        <!-- Mobile Menu Button (omitted for single-view app simplicity but structure allows it) -->
-                    </div>
+                        </div>
                 </div>
             </div>
         `;
@@ -436,20 +464,9 @@
         const businessDirectory = renderBusinessDirectory();
 
         // Use the first item from spotlights collection as the feature, filter by type if needed
-        const featuredSpotlight = spotlights.find(s => s.type === 'Business' || s.type === 'Story') || {
-            title_en: 'Default Spotlight Feature: Community Hero!',
-            title_bn: 'ডিফল্ট স্পটলাইট ফিচার: কমিউনিটি হিরো!',
-            story_en: 'This is a rotating feature on a local business or compelling community story. This content is dynamically loaded from the Firestore "spotlights" collection.',
-            story_bn: 'এটি একটি স্থানীয় ব্যবসা বা আকর্ষণীয় কমিউনিটি গল্পের উপর একটি আবর্তিত ফিচার। এই কন্টেন্টটি ফায়ারস্টোর "spotlights" কালেকশন থেকে ডাইনামিকভাবে লোড হয়।',
-            posted_date: Timestamp.fromDate(new Date())
-        };
+        const featuredSpotlight = spotlights.find(s => s.type === 'Business' || s.type === 'Story');
 
-        const volunteerOfTheMonth = spotlights.find(s => s.type === 'VolunteerOTM') || {
-            title_en: 'Volunteer Name: Jane Doe',
-            title_bn: 'স্বেচ্ছাসেবকের নাম: জেন ডো',
-            story_en: 'Thank you to Jane Doe for her outstanding service this month! We appreciate your commitment.',
-            story_bn: 'এই মাসে জেন ডো-কে তার অসাধারণ সেবার জন্য ধন্যবাদ! আমরা আপনার প্রতিশ্রুতির প্রশংসা করি।',
-        };
+        const volunteerOfTheMonth = spotlights.find(s => s.type === 'VolunteerOTM');
 
         return `
             <h1 class="text-4xl font-extrabold text-gray-800 mb-4">${t('spotlight_headline')}</h1>
@@ -458,18 +475,21 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
                 <!-- Main Spotlight Feature -->
                 <div class="lg:col-span-2 bg-white p-8 rounded-xl shadow-xl border-l-4 border-green-500">
-                    <h2 class="text-3xl font-bold text-green-700 mb-3">${t_data(featuredSpotlight, 'title')}</h2>
-                    <p class="text-sm text-gray-500 mb-4">Posted: ${new Date(featuredSpotlight.posted_date.toMillis()).toLocaleDateString()}</p>
-                    <p class="text-gray-700 mb-6">${t_data(featuredSpotlight, 'story')}</p>
-                    <button onclick="navigateTo('/submit-content')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-full transition-colors shadow-md text-sm">${t('spotlight_cta_nominate')}</button>
+                    ${featuredSpotlight ? `
+                        <h2 class="text-3xl font-bold text-green-700 mb-3">${t_data(featuredSpotlight, 'title')}</h2>
+                        <p class="text-sm text-gray-500 mb-4">Posted: ${new Date(featuredSpotlight.posted_date.toMillis()).toLocaleDateString()}</p>
+                        <p class="text-gray-700 mb-6">${t_data(featuredSpotlight, 'story')}</p>
+                        <button onclick="navigateTo('/submit-content')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-full transition-colors shadow-md text-sm">${t('spotlight_cta_nominate')}</button>
+                    ` : `<p class="text-center text-gray-500">${t('no_content_available')}</p>`}
                 </div>
 
-                <!-- Volunteer of the Month -->
                 <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500 flex flex-col justify-between">
                     <div>
                         <h2 class="text-2xl font-bold text-indigo-700 mb-2">${t('volunteer_otm_headline')}</h2>
-                        <h3 class="text-xl font-semibold mb-3">${t_data(volunteerOfTheMonth, 'title')}</h3>
-                        <p class="text-gray-700">${t_data(volunteerOfTheMonth, 'story')}</p>
+                        ${volunteerOfTheMonth ? `
+                            <h3 class="text-xl font-semibold mb-3">${t_data(volunteerOfTheMonth, 'title')}</h3>
+                            <p class="text-gray-700">${t_data(volunteerOfTheMonth, 'story')}</p>
+                        ` : `<p class="text-gray-500 italic">${t('no_content_available')}</p>`}
                     </div>
                     <button onclick="navigateTo('/volunteer')" class="mt-4 w-full bg-gray-100 hover:bg-gray-200 text-indigo-600 font-semibold py-2 rounded-full transition-colors">View All Volunteer Needs</button>
                 </div>
@@ -531,6 +551,7 @@
     const renderEvents = () => {
         const upcoming = events.filter(e => e.event_datetime.toMillis() > Date.now());
         const past = events.filter(e => e.event_datetime.toMillis() <= Date.now());
+        const issues = civicIssues; // Use the new civicIssues array
 
         const eventToHtml = (event, isPast) => {
             const date = new Date(event.event_datetime.toMillis()).toLocaleString(currentLang === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'full', timeStyle: 'short' });
@@ -544,24 +565,36 @@
             `;
         };
 
+        const issueToHtml = (issue) => {
+            const date = new Date(issue.posted_date.toMillis()).toLocaleDateString(currentLang === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'medium' });
+            return `
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
+                    <h3 class="text-xl font-semibold mb-2 text-blue-700">${t_data(issue, 'title')}</h3>
+                    <p class="text-sm text-gray-500 mb-3">Posted: ${date} / Location: ${issue.location || 'Metro Detroit'}</p>
+                    <div class="text-gray-700 mt-2">${t_data(issue, 'body')}</div>
+                </div>
+            `;
+        };
+
         return `
             <h1 class="text-4xl font-extrabold text-gray-800 mb-4">${t('events_issues_headline')}</h1>
             <p class="text-lg text-gray-600 mb-8 max-w-4xl">${t('events_issues_body')}</p>
 
-            <!-- Upcoming Events -->
             <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('upcoming_events_title')}</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
                 ${upcoming.length > 0 ? upcoming.map(e => eventToHtml(e, false)).join('') : `<p class="col-span-2 text-gray-500">${t('no_content_available')}</p>`}
             </div>
 
-            <!-- Civic Summaries (Placeholder) -->
             <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('civic_summaries_title')}</h2>
-            <div class="bg-white p-6 rounded-xl shadow-lg mb-12 border-l-4 border-blue-500">
-                <p class="text-gray-700">${t('loading_data')}</p>
-                <p class="text-sm text-gray-500 mt-2">Data from the 'civic_issues' collection will appear here, showing simple summaries of local policy and engagement opportunities.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                ${issues.length > 0 ? issues.map(issueToHtml).join('') : `
+                    <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500 md:col-span-2">
+                        <p class="text-gray-700 font-medium">No active civic issues or local policy summaries available right now.</p>
+                        <p class="text-sm text-gray-500 mt-2">Use the <a href="#/submit-content" onclick="navigateTo('/submit-content')" class="text-indigo-600 hover:text-indigo-800 font-semibold">Submissions Hub</a> to report a local civic concern.</p>
+                    </div>
+                `}
             </div>
 
-            <!-- Past Events Gallery -->
             <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('past_events_title')} (${past.length})</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 ${past.length > 0 ? past.map(e => eventToHtml(e, true)).join('') : `<p class="col-span-2 text-gray-500">${t('no_content_available')}</p>`}
@@ -798,6 +831,90 @@
         `;
     };
 
+    const renderAdminPortal = () => {
+        if (userId !== ADMIN_USER_ID) {
+            return `<div class="p-20 text-center text-red-500">Access Denied. Only the Admin can view this page.</div>`;
+        }
+
+        const submissions = window.adminSubmissions || [];
+
+        
+
+        const submissionHtml = submissions.map(sub => {
+            const date = new Date(sub.submitted_at.toMillis()).toLocaleString();
+            const payload = JSON.parse(sub.payload);
+            const statusColor = sub.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                                sub.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800';
+
+            // --- NEW: Dynamic Summary Content ---
+            let summaryContent = '';
+            switch(sub.submission_type) {
+                case '4. I Want To Volunteer':
+                    const skills = payload.field_skills || 'None listed';
+                    const whyHelp = payload.field_why_help || 'No reason provided';
+                    summaryContent = `
+                        <p class="text-gray-700 mb-1"><strong>Skills Offered:</strong> ${skills}</p>
+                        <p class="text-gray-700 mb-4"><strong>Why Help:</strong> ${whyHelp.substring(0, 100)}${whyHelp.length > 100 ? '...' : ''}</p>
+                    `;
+                    break;
+                case '1. Event Submission':
+                case '2. Local Civic Issue':
+                case '3. Volunteer Need (Post)':
+                case '8. Local Spotlight Nomination':
+                    const title = payload.field_content_title || 'No Title Provided';
+                    const body = payload.field_content_body || 'No description available';
+                    summaryContent = `
+                        <h4 class="text-lg font-semibold text-gray-800 mb-2">${title}</h4>
+                        <p class="text-gray-700 mb-4 line-clamp-2">${body.substring(0, 150)}${body.length > 150 ? '...' : ''}</p>
+                    `;
+                    break;
+                default:
+                    // For other types like Mentorship/Inquiry, only show the raw payload below.
+                    summaryContent = `<p class="text-gray-600 italic mb-4">No structured summary defined for this type.</p>`;
+                    break;
+            }
+            // --- END NEW: Dynamic Summary Content ---
+
+            return `
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500 mb-4">
+                    <div class="flex justify-between items-center mb-3 border-b pb-2">
+                        <h3 class="text-xl font-bold text-gray-800">${sub.submission_type}</h3>
+                        <span class="px-3 py-1 text-sm font-semibold rounded-full ${statusColor}">${sub.status}</span>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-1"><strong>Submitted By:</strong> ${sub.contact_name} (${sub.contact_email})</p>
+                    <p class="text-sm text-gray-500 mb-4"><strong>Date:</strong> ${date} | <strong>User ID:</strong> ${sub.user_id}</p>
+                    
+                    <div class="my-4 p-3 bg-gray-50 rounded-lg">
+                        ${summaryContent}
+                    </div>
+                    
+                    ${sub.status === 'pending' ? `
+                        <div class="mt-4 flex space-x-3">
+                            <button onclick="approveSubmission('${sub.id}', '${sub.submission_type}', '${sub.payload}')"
+                                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full transition-colors text-sm">
+                                Approve & Publish
+                            </button>
+                            <button onclick="rejectSubmission('${sub.id}')"
+                                class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full transition-colors text-sm">
+                                Reject
+                            </button>
+                        </div>
+                    ` : `<p class="mt-4 text-sm text-gray-600 italic">Review complete on ${new Date(sub.review_date?.toMillis()).toLocaleString()}.</p>`}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <h1 class="text-4xl font-extrabold text-indigo-800 mb-4">🔑 Admin Portal: Submissions Review</h1>
+            <p class="text-lg text-gray-600 mb-8 max-w-4xl">Review and approve community content before it goes live on the public pages (Events, Spotlights, Volunteer Needs).</p>
+
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Pending Submissions (${submissions.filter(s => s.status === 'pending').length} Pending)</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                ${submissions.length > 0 ? submissionHtml : '<p class="text-center text-gray-500 lg:col-span-2">No submissions to review.</p>'}
+            </div>
+        `;
+    };
+
     const renderApp = () => {
         if (!isAuthReady) {
             document.getElementById('loading-message').textContent = t('loading_data');
@@ -823,6 +940,9 @@
                 break;
             case 'submit':
                 contentHtml = renderSubmissionHub();
+                break;
+            case 'admin': // NEW: Admin Case
+                contentHtml = renderAdminPortal();
                 break;
             default:
                 currentPage = 'home';
@@ -856,6 +976,78 @@
         { name: 'Zafreen\'s Kitchen', category_en: 'Catering', category_bn: 'ক্যাটারিং', location: 'Metro Detroit (Home-based/Catering)', website: 'N/A' },
         { name: 'Armario Collection', category_en: 'Niche Retail/Clothing', category_bn: 'নিশ রিটেইল/পোশাক', location: 'Metro Detroit (Home-based)', website: 'N/A' },
     ];
+    const approveSubmission = async (id, type, payloadString) => {
+        if (!confirm(`Are you sure you want to APPROVE this ${type} submission?`)) return;
+
+        const submissionRef = doc(db, getUserCollectionPath(), id);
+        const payload = JSON.parse(payloadString);
+        const data = {};
+
+        // Map fields from raw submission to public collection fields
+        const mapField = (key) => payload[`field_${key}`];
+
+        switch(type) {
+            case '1. Event Submission':
+                data.title_en = mapField('content_title');
+                data.title_bn = mapField('content_title'); // Assuming bilingual title is same or needs admin edit
+                data.desc_en = mapField('content_body');
+                data.desc_bn = mapField('content_body');
+                data.location = mapField('location');
+                data.image_url = mapField('image_upload');
+                data.event_datetime = Timestamp.fromDate(new Date(mapField('date_time')));
+                data.posted_date = Timestamp.now();
+                await setDoc(doc(db, getPublicCollectionPath('events'), id), data);
+                break;
+            case '2. Local Civic Issue':
+                data.title_en = mapField('content_title');
+                data.title_bn = mapField('content_title');
+                data.body_en = mapField('content_body');
+                data.body_bn = mapField('content_body');
+                data.location = mapField('location');
+                data.image_url = mapField('image_upload');
+                data.posted_date = Timestamp.now();
+                // Assumes a 'civic_issues' public collection
+                await setDoc(doc(db, getPublicCollectionPath('civic_issues'), id), data);
+                break;
+            case '3. Volunteer Need (Post)':
+                data.title_en = mapField('content_title');
+                data.title_bn = mapField('content_title');
+                data.details_en = mapField('content_body');
+                data.details_bn = mapField('content_body');
+                data.location = mapField('location');
+                data.skills_req = mapField('skills');
+                data.event_datetime = Timestamp.fromDate(new Date(mapField('date_time')));
+                data.is_active = true;
+                data.posted_date = Timestamp.now();
+                // Assumes a 'volunteer_needs' public collection
+                await setDoc(doc(db, getPublicCollectionPath('volunteer_needs'), id), data);
+                break;
+            case '4. I Want To Volunteer':
+                // This type is a private application to volunteer, not public content.
+                // Only log the approval and fall through to update the status in raw_submissions.
+                console.log(`Volunteer Application ${id} approved. No public document created.`);
+                break;
+                // Other types (Spotlight, etc.) would be handled here similarly.
+            default:
+                alert(`Approval logic for type "${type}" is not implemented.`);
+                return;
+        }
+
+        // Update status in the raw_submissions collection
+        await updateDoc(submissionRef, { status: 'approved', review_date: Timestamp.now() });
+        console.log(`Submission ${id} (${type}) approved and published.`);
+    };
+
+    const rejectSubmission = async (id) => {
+        if (!confirm('Are you sure you want to REJECT this submission?')) return;
+        const submissionRef = doc(db, getUserCollectionPath(), id);
+        await updateDoc(submissionRef, { status: 'rejected', review_date: Timestamp.now() });
+        console.log(`Submission ${id} rejected.`);
+    };
+
+    // Attach global functions for inline calls
+    window.approveSubmission = approveSubmission;
+    window.rejectSubmission = rejectSubmission;
     // --- START APPLICATION ---
     window.onload = initializeAppAndAuth;
 </script>
