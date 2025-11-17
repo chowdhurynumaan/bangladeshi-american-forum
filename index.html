@@ -176,6 +176,8 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
         'field_date_time': { 'en': 'Date/Time (YYYY-MM-DD HH:MM)', 'bn': 'তারিখ/সময় (YYYY-MM-DD HH:MM)' },
         'field_location': { 'en': 'Location/Address', 'bn': 'অবস্থান/ঠিকানা' },
         'field_skills': { 'en': 'Skills/Expertise (Comma-separated)', 'bn': 'দক্ষতা/বিশেষজ্ঞতা (কমা দ্বারা বিভক্ত)' },
+        'field_category': { 'en': 'Category/Service Type (e.g., Restaurant, Real Estate)', 'bn': 'ক্যাটাগরি/সেবার ধরণ (যেমন: রেস্তোরাঁ, রিয়েল এস্টেট)' },
+        'field_image_upload': { 'en': 'Image Upload Link (Optional)', 'bn': 'ছবি আপলোড লিঙ্ক (ঐচ্ছিক)' },
         'field_image_upload': { 'en': 'Image Upload Link (Optional)', 'bn': 'ছবি আপলোড লিঙ্ক (ঐচ্ছিক)' },
         'field_why_help': { 'en': 'Why I want to help (Optional)', 'bn': 'আমি কেন সাহায্য করতে চাই (ঐচ্ছিক)' },
         'field_expertise_area': { 'en': 'Expertise Area (e.g., Finance, IT)', 'bn': 'বিশেষজ্ঞতার ক্ষেত্র (যেমন: অর্থ, আইটি)' },
@@ -199,6 +201,7 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
         'type_spotlight': { 'en': '8. Local Spotlight Nomination', 'bn': '৮. স্থানীয় স্পটলাইট নমিনেশন' },
         'type_inquiry': { 'en': '7. General Inquiry', 'bn': '৭. সাধারণ জিজ্ঞাসা' },
         'type_spotlight': { 'en': '8. Local Spotlight Nomination', 'bn': '৮. স্থানীয় স্পটলাইট নমিনেশন' },
+        'type_business_listing': { 'en': '9. Business/Directory Listing', 'bn': '৯. ব্যবসা/ডিরেক্টরি তালিকা' },
         // NEW: Admin Portal Nav Link Text
         'nav_admin': { 'en': 'Admin Portal', 'bn': 'এডমিন পোর্টাল' },
     };
@@ -212,6 +215,7 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
         '6. Mentorship Request': ['area_of_need', 'goals_background', 'skills'],
         '7. General Inquiry': ['content_title', 'content_body'],
         '8. Local Spotlight Nomination': ['content_title', 'content_body', 'location', 'image_upload'],
+        '9. Business/Directory Listing': ['content_title', 'content_body', 'location', 'category', 'image_upload'],
     };
 
     // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
@@ -553,10 +557,11 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
     };
 
     const renderBusinessDirectory = () => {
-        const directoryData = localBusinesses.length > 0 ? localBusinesses : getInitialBusinessData(); // Use initial data if Firestore is empty/loading
+        const directoryData = localBusinesses; // Data must come from Firestore only now
 
         return `
             <h2 class="text-3xl font-bold text-gray-800 mb-4">${t('business_dir_title')}</h2>
+            ${directoryData.length === 0 ? `<p class="text-center text-gray-500 py-4 italic">${t('no_content_available')}</p>` : ''}
             <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead>
@@ -583,6 +588,7 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
     };
 
     const renderEvents = () => {
+// ...
         const upcoming = events.filter(e => e.event_datetime.toMillis() > Date.now());
         const past = events.filter(e => e.event_datetime.toMillis() <= Date.now());
         const issues = civicIssues; // Use the new civicIssues array
@@ -684,7 +690,7 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
     const renderSubmissionHub = () => {
         const submissionTypes = [
             'type_event', 'type_issue', 'type_volunteer_post', 'type_volunteer_apply',
-            'type_mentor_offer', 'type_mentor_request', 'type_inquiry', 'type_spotlight'
+            'type_mentor_offer', 'type_mentor_request', 'type_inquiry', 'type_spotlight', 'type_business_listing'
         ].map(key => ({
             value: key.split('_').pop() === 'event' ? '1. Event Submission' : t(key),
             label: t(key)
@@ -703,6 +709,7 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
                 'date_time': { label: t('field_date_time'), type: 'text', required: true, placeholder: '2025-12-31 18:00' },
                 'location': { label: t('field_location'), type: 'text', required: true, placeholder: '123 Main St, Warren MI' },
                 'skills': { label: t('field_skills'), type: 'text', required: true, placeholder: 'e.g., event setup, finance, graphic design' },
+                'category': { label: t('field_category'), type: 'text', required: true, placeholder: 'e.g., Restaurant, Real Estate' }, // NEW FIELD
                 'image_upload': { 
                     label: t('field_image_upload'), 
                     type: 'text', 
@@ -998,28 +1005,10 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
     };
 
     // --- INITIAL DATA SEEDING (For Local Business Directory) ---
-    // If Firestore is empty, this provides the initial data set
-    const getInitialBusinessData = () => [
-        { name: 'Amar Pizza', category_en: 'Restaurant/Food', category_bn: 'রেস্টুরেন্ট/খাবার', location: '12195 Joseph Campau, Hamtramck', website: 'N/A' },
-        { name: 'Zamzam Restaurant', category_en: 'Restaurant/Food', category_bn: 'রেস্টুরেন্ট/খাবার', location: '11917 Conant St., Hamtramck', website: 'N/A' },
-        { name: 'Bonoful Sweets & Cafe', category_en: 'Sweets/Café/Restaurant', category_bn: 'মিষ্টি/ক্যাফে/রেস্টুরেন্ট', location: '12085 Conant Ave., Hamtramck', website: 'N/A' },
-        { name: 'Al Amin Super Market', category_en: 'Grocery/Halal Retail', category_bn: 'মুদি/হালাল রিটেইল', location: '11920 Conant St., Hamtramck', website: 'N/A' },
-        { name: 'Hera Fish Market / Hera Food Mart', category_en: 'Grocery/Imported Fish', category_bn: 'মুদি/আমদানিকৃত মাছ', location: '30-11 Holbrook Street, Hamtramck, MI 48212', website: 'N/A' },
-        { name: 'Nina Fashion & Fabrics', category_en: 'Clothing/Fashion Retail', category_bn: 'পোশাক/ফ্যাশন রিটেইল', location: '11627 Conant St., Hamtramck', website: 'N/A' },
-        { name: 'Real Estate Advantage', category_en: 'Real Estate', category_bn: 'রিয়েল এস্টেট', location: '3100 Caniff Ave., Hamtramck, MI 48212', website: 'N/A' },
-        { name: 'Bangla Remodeling', category_en: 'Construction/Trades', category_bn: 'নির্মাণ/ট্রেড', location: 'Hamtramck-based', website: 'N/A' },
-        { name: 'Bangladeshi American Comm. Svcs. Inc. (BACSI)', category_en: 'Social Services/Non-Profit', category_bn: 'সামাজিক সেবা/অলাভজনক', location: '12818 Joseph Campau, Hamtramck', website: 'N/A' },
-        { name: 'Adda Music Cafe and Restaurant', category_en: 'Restaurant/Food/Cafe', category_bn: 'রেস্টুরেন্ট/খাবার/ক্যাফে', location: 'Warren, MI', website: 'N/A' },
-        { name: 'Hera Food Mart (Warren location)', category_en: 'Grocery/Halal Retail', category_bn: 'মুদি/হালাল রিটেইল', location: '28756 Ryan Rd., Warren, MI 48092', website: 'N/A' },
-        { name: 'Bangladesh Association of Michigan (BAM)', category_en: 'Community Association/Non-Profit', category_bn: 'কমিউনিটি অ্যাসোসিয়েশন/অলাভজনক', location: '24163 Joanne Ave, Warren, MI 48091', website: 'N/A' },
-        { name: 'mQrg, LLC (Charlevoix Facility)', category_en: 'Auto Repair/Industrial Service', category_bn: 'গাড়ি মেরামত/শিল্প পরিষেবা', location: '12141 Charlevoix St., Detroit, MI 48215', website: 'N/A' },
-        { name: 'mQrg, LLC (Flat Rock Facility)', category_en: 'Auto Repair/Industrial Service', category_bn: 'গাড়ি মেরামত/শিল্প পরিষেবা', location: '29500 Gateway Drive, Flat Rock, MI 48134', website: 'N/A' },
-        { name: 'Sonali Exchange Co. Inc.', category_en: 'Money Transfer / Finance', category_bn: 'অর্থ স্থানান্তর / অর্থায়ন', location: 'Licensed in Michigan (NY HQ)', website: 'N/A' },
-        { name: 'Noor Chowdhury (Realtor)', category_en: 'Real Estate Agent', category_bn: 'রিয়েল এস্টেট এজেন্ট', location: '36250 Dequindre Rd. Ste. 100, Sterling Heights, MI 48310', website: 'N/A' },
-        { name: 'Zafreen\'s Kitchen', category_en: 'Catering', category_bn: 'ক্যাটারিং', location: 'Metro Detroit (Home-based/Catering)', website: 'N/A' },
-        { name: 'Armario Collection', category_en: 'Niche Retail/Clothing', category_bn: 'নিশ রিটেইল/পোশাক', location: 'Metro Detroit (Home-based)', website: 'N/A' },
-    ];
+    // The data is now intended to be added only via the Submission Hub/Admin Portal.
+    // The previous getInitialBusinessData function has been removed.
     const approveSubmission = async (id, type, payloadString) => {
+// ...
         if (!confirm(`Are you sure you want to APPROVE this ${type} submission?`)) return;
 
         const submissionRef = doc(db, getUserCollectionPath(), id);
@@ -1069,6 +1058,18 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
                 // This type is a private application to volunteer, not public content.
                 // Only log the approval and fall through to update the status in raw_submissions.
                 console.log(`Volunteer Application ${id} approved. No public document created.`);
+                break;
+            case '9. Business/Directory Listing':
+                data.title_en = mapField('content_title');
+                data.title_bn = mapField('content_title'); 
+                data.details_en = mapField('content_body');
+                data.details_bn = mapField('content_body');
+                data.category = mapField('category');
+                data.location = mapField('location');
+                data.image_url = mapField('image_upload');
+                data.posted_date = Timestamp.now();
+                // Assumes a 'local_businesses' public collection
+                await setDoc(doc(db, getPublicCollectionPath('local_businesses'), id), data);
                 break;
                 // Other types (Spotlight, etc.) would be handled here similarly.
             default:
