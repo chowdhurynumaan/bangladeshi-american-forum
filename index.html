@@ -30,6 +30,21 @@
             border-radius: 9999px;
             font-weight: 600;
         }
+        /* Style for datetime picker */
+        input[type="datetime-local"] {
+            cursor: pointer;
+            min-height: 44px;
+        }
+        
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+            background-color: #e5e7eb;
+        }
     </style>
 </head>
 <body>
@@ -173,7 +188,7 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
         'field_contact_email': { 'en': 'Your Email', 'bn': 'আপনার ইমেল' },
         'field_content_title': { 'en': 'Content Title (EN/BN)', 'bn': 'কন্টেন্ট শিরোনাম (EN/BN)' },
         'field_content_body': { 'en': 'Content Body/Description (EN/BN)', 'bn': 'কন্টেন্ট বডি/বিবরণ (EN/BN)' },
-        'field_date_time': { 'en': 'Date/Time (YYYY-MM-DD HH:MM)', 'bn': 'তারিখ/সময় (YYYY-MM-DD HH:MM)' },
+       'field_date_time': { 'en': 'Event Date & Time', 'bn': 'ইভেন্টের তারিখ ও সময়' },
         'field_location': { 'en': 'Location/Address', 'bn': 'অবস্থান/ঠিকানা' },
         'field_skills': { 'en': 'Skills/Expertise (Comma-separated)', 'bn': 'দক্ষতা/বিশেষজ্ঞতা (কমা দ্বারা বিভক্ত)' },
         'field_category': { 'en': 'Category/Service Type (e.g., Restaurant, Real Estate)', 'bn': 'ক্যাটাগরি/সেবার ধরণ (যেমন: রেস্তোরাঁ, রিয়েল এস্টেট)' },
@@ -249,13 +264,15 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
     // --- FIREBASE DATA LISTENERS (onSnapshot) ---
     const getPublicCollectionPath = (collectionName) => `/artifacts/${appId}/public/data/${collectionName}`;
     const getUserCollectionPath = () => `/artifacts/${appId}/users/${userId}/raw_submissions`;
+    const getSubmissionsQueuePath = () => `/artifacts/${appId}/submissions_queue`; // NEW Global Submission Queue
 
     const setupFirestoreListeners = () => {
         if (!isAuthReady) return;
 
         // New: Admin listener for all submissions (only fetched for admin user later)
         if (userId === ADMIN_USER_ID) {
-            onSnapshot(collection(db, getUserCollectionPath()), (snapshot) => {
+            // FIX: Read from the new global submissions queue, NOT the user-specific path
+            onSnapshot(collection(db, getSubmissionsQueuePath()), (snapshot) => {
                 window.adminSubmissions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 window.adminSubmissions.sort((a, b) => b.submitted_at.toMillis() - a.submitted_at.toMillis());
                 renderApp();
@@ -706,7 +723,7 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
             const fieldMap = {
                 'content_title': { label: t('field_content_title'), type: 'text', required: true, note: 'Bilingual translation encouraged.' },
                 'content_body': { label: t('field_content_body'), type: 'textarea', required: true, minWords: 150, note: t('field_min_150') },
-                'date_time': { label: t('field_date_time'), type: 'text', required: true, placeholder: '2025-12-31 18:00' },
+                'date_time': { label: t('field_date_time'), type: 'datetime-local', required: true, placeholder: '' },
                 'location': { label: t('field_location'), type: 'text', required: true, placeholder: '123 Main St, Warren MI' },
                 'skills': { label: t('field_skills'), type: 'text', required: true, placeholder: 'e.g., event setup, finance, graphic design' },
                 'category': { label: t('field_category'), type: 'text', required: true, placeholder: 'e.g., Restaurant, Real Estate' }, // NEW FIELD
@@ -790,12 +807,13 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
             document.getElementById('submit-button').textContent = 'Submitting...';
 
             try {
-                // Save to the private raw_submissions collection
-                await addDoc(collection(db, getUserCollectionPath()), {
+                // FIX: Save to the new global submissions queue collection, NOT the user's private path
+                await addDoc(collection(db, getSubmissionsQueuePath()), {
                     submission_type: submissionType,
                     contact_name: contactName,
                     contact_email: contactEmail,
-                    user_id: userId,
+                    // The submitting user's ID is still tracked for reference
+                    submitted_user_id: userId, 
                     payload: JSON.stringify(payload), // Store dynamic data as JSON string
                     status: 'pending',
                     submitted_at: Timestamp.now(),
@@ -880,13 +898,52 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
             </div>
         `;
     };
+    // ===== ADMIN HANDLERS - MUST BE DEFINED BEFORE renderAdminPortal =====
+    // Create wrapper functions that look up the submission data from the window.adminSubmissions array
+    window.handleApprove = (submissionId) => {
+        console.log("=== APPROVE HANDLER CALLED ===");
+        console.log("Submission ID:", submissionId);
+        console.log("Available submissions:", window.adminSubmissions);
+        
+        const submission = window.adminSubmissions.find(s => s.id === submissionId);
+        if (!submission) {
+            console.error("Submission not found:", submissionId);
+            alert("Error: Submission not found. Check console for details.");
+            return;
+        }
+        console.log("Found submission:", submission);
+        console.log("Calling approveSubmission...");
+        approveSubmission(submission.id, submission.submission_type, submission.payload);
+    };
 
+    window.handleReject = (submissionId) => {
+        console.log("=== REJECT HANDLER CALLED ===");
+        console.log("Submission ID:", submissionId);
+        console.log("Available submissions:", window.adminSubmissions);
+        
+        const submission = window.adminSubmissions.find(s => s.id === submissionId);
+        if (!submission) {
+            console.error("Submission not found:", submissionId);
+            alert("Error: Submission not found. Check console for details.");
+            return;
+        }
+        console.log("Found submission:", submission);
+        console.log("Calling rejectSubmission...");
+        rejectSubmission(submission.id);
+    };
+
+    
     const renderAdminPortal = () => {
         if (userId !== ADMIN_USER_ID) {
             return `<div class="p-20 text-center text-red-500">Access Denied. Only the Admin can view this page.</div>`;
         }
 
+        console.log("=== RENDERING ADMIN PORTAL ===");
+        console.log("window.handleApprove defined:", typeof window.handleApprove);
+        console.log("window.handleReject defined:", typeof window.handleReject);
+        
         const submissions = window.adminSubmissions || [];
+        console.log("Submissions to render:", submissions.length);
 
         
 
@@ -932,7 +989,7 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
                         <span class="px-3 py-1 text-sm font-semibold rounded-full ${statusColor}">${sub.status}</span>
                     </div>
                     <p class="text-sm text-gray-700 mb-1"><strong>Submitted By:</strong> ${sub.contact_name} (${sub.contact_email})</p>
-                    <p class="text-sm text-gray-500 mb-4"><strong>Date:</strong> ${date} | <strong>User ID:</strong> ${sub.user_id}</p>
+                    <p class="text-sm text-gray-500 mb-4"><strong>Date:</strong> ${date} | <strong>User ID:</strong> ${sub.submitted_user_id}</p>
                     
                     <div class="my-4 p-3 bg-gray-50 rounded-lg">
                         ${summaryContent}
@@ -940,12 +997,14 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
                     
                     ${sub.status === 'pending' ? `
                         <div class="mt-4 flex space-x-3">
-                            <button onclick="approveSubmission('${sub.id}', '${sub.submission_type}', '${sub.payload}')"
-                                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full transition-colors text-sm">
+                            <button 
+                                onclick="console.log('Approve clicked'); if(window.handleApprove) { window.handleApprove('${sub.id}'); } else { alert('Handler not found'); }"
+                                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full transition-colors text-sm cursor-pointer">
                                 Approve & Publish
                             </button>
-                            <button onclick="rejectSubmission('${sub.id}')"
-                                class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full transition-colors text-sm">
+                            <button 
+                                onclick="console.log('Reject clicked'); if(window.handleReject) { window.handleReject('${sub.id}'); } else { alert('Handler not found'); }"
+                                class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full transition-colors text-sm cursor-pointer">
                                 Reject
                             </button>
                         </div>
@@ -1008,15 +1067,27 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
     // The data is now intended to be added only via the Submission Hub/Admin Portal.
     // The previous getInitialBusinessData function has been removed.
     const approveSubmission = async (id, type, payloadString) => {
-// ...
+        console.log("=== APPROVE SUBMISSION FUNCTION ===");
+        console.log("ID:", id);
+        console.log("Type:", type);
+        console.log("Payload String:", payloadString);
+        
         if (!confirm(`Are you sure you want to APPROVE this ${type} submission?`)) return;
 
-        const submissionRef = doc(db, getUserCollectionPath(), id);
-        const payload = JSON.parse(payloadString);
-        const data = {};
+        try {
+            // FIX: Reference the submission from the new global queue path
+            const submissionRef = doc(db, getSubmissionsQueuePath(), id); 
+            const payload = JSON.parse(payloadString);
+            console.log("Parsed payload:", payload);
+            
+            const data = {};
 
-        // Map fields from raw submission to public collection fields
-        const mapField = (key) => payload[`field_${key}`];
+            // Map fields from raw submission to public collection fields
+            const mapField = (key) => {
+                const value = payload[`field_${key}`];
+                console.log(`Mapping field ${key}:`, value);
+                return value;
+            };
 
         switch(type) {
             case '1. Event Submission':
@@ -1026,7 +1097,34 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
                 data.desc_bn = mapField('content_body');
                 data.location = mapField('location');
                 data.image_url = mapField('image_upload');
-                data.event_datetime = Timestamp.fromDate(new Date(mapField('date_time')));
+                
+                // Parse date safely with validation
+                const eventDateStr = mapField('date_time');
+                console.log("Parsing event date:", eventDateStr);
+                
+                if (!eventDateStr) {
+                    alert('Event date/time is required but was not provided.');
+                    return;
+                }
+                
+                let eventDate;
+                try {
+                    // datetime-local format is: "2025-12-31T18:00"
+                    // This is ISO 8601 format which JavaScript handles natively
+                    eventDate = new Date(eventDateStr);
+                    
+                    if (isNaN(eventDate.getTime())) {
+                        throw new Error("Invalid date");
+                    }
+                    
+                    data.event_datetime = Timestamp.fromDate(eventDate);
+                    console.log("Successfully parsed date:", eventDate.toISOString());
+                } catch (error) {
+                    console.error("Failed to parse date:", eventDateStr, error);
+                    alert(`Invalid date/time value. Please try selecting the date again.`);
+                    return;
+                }
+                
                 data.posted_date = Timestamp.now();
                 await setDoc(doc(db, getPublicCollectionPath('events'), id), data);
                 break;
@@ -1037,6 +1135,22 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
                 data.body_bn = mapField('content_body');
                 data.location = mapField('location');
                 data.image_url = mapField('image_upload');
+                
+                // Parse date if provided (optional for civic issues)
+                const issueDateStr = mapField('date_time');
+                if (issueDateStr) {
+                    console.log("Parsing civic issue date:", issueDateStr);
+                    try {
+                        const issueDate = new Date(issueDateStr);
+                        if (!isNaN(issueDate.getTime())) {
+                            data.issue_date = Timestamp.fromDate(issueDate);
+                        }
+                    } catch (error) {
+                        console.warn("Could not parse issue date:", issueDateStr, error);
+                        // Not critical for civic issues, so just log and continue
+                    }
+                }
+                
                 data.posted_date = Timestamp.now();
                 // Assumes a 'civic_issues' public collection
                 await setDoc(doc(db, getPublicCollectionPath('civic_issues'), id), data);
@@ -1048,7 +1162,32 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
                 data.details_bn = mapField('content_body');
                 data.location = mapField('location');
                 data.skills_req = mapField('skills');
-                data.event_datetime = Timestamp.fromDate(new Date(mapField('date_time')));
+                
+                // Parse date safely with validation
+                const volunteerDateStr = mapField('date_time');
+                console.log("Parsing volunteer date:", volunteerDateStr);
+                
+                if (!volunteerDateStr) {
+                    alert('Volunteer need date/time is required but was not provided.');
+                    return;
+                }
+                
+                let volunteerDate;
+                try {
+                    volunteerDate = new Date(volunteerDateStr);
+                    
+                    if (isNaN(volunteerDate.getTime())) {
+                        throw new Error("Invalid date");
+                    }
+                    
+                    data.event_datetime = Timestamp.fromDate(volunteerDate);
+                    console.log("Successfully parsed volunteer date:", volunteerDate.toISOString());
+                } catch (error) {
+                    console.error("Failed to parse date:", volunteerDateStr, error);
+                    alert(`Invalid date/time value. Please try selecting the date again.`);
+                    return;
+                }
+                
                 data.is_active = true;
                 data.posted_date = Timestamp.now();
                 // Assumes a 'volunteer_needs' public collection
@@ -1078,18 +1217,27 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
         }
 
         // Update status in the raw_submissions collection
-        await updateDoc(submissionRef, { status: 'approved', review_date: Timestamp.now() });
-        console.log(`Submission ${id} (${type}) approved and published.`);
+            await updateDoc(submissionRef, { status: 'approved', review_date: Timestamp.now() });
+            console.log(`Submission ${id} (${type}) approved and published.`);
+            alert(`✅ Submission approved and published successfully!`);
+            
+        } catch (error) {
+            console.error("=== ERROR IN APPROVE SUBMISSION ===");
+            console.error("Error details:", error);
+            console.error("Error stack:", error.stack);
+            alert(`❌ Error approving submission: ${error.message}\n\nCheck console for details.`);
+        }
     };
 
     const rejectSubmission = async (id) => {
         if (!confirm('Are you sure you want to REJECT this submission?')) return;
-        const submissionRef = doc(db, getUserCollectionPath(), id);
+        // FIX: Reference the submission from the new global queue path
+        const submissionRef = doc(db, getSubmissionsQueuePath(), id); 
         await updateDoc(submissionRef, { status: 'rejected', review_date: Timestamp.now() });
         console.log(`Submission ${id} rejected.`);
     };
 
-    // Attach global functions for inline calls
+    // Attach global functions for inline calls (keep for backward compatibility)
     window.approveSubmission = approveSubmission;
     window.rejectSubmission = rejectSubmission;
     // --- START APPLICATION ---
