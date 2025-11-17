@@ -68,6 +68,63 @@
         .admin-tab-content.active {
             display: block;
         }
+        .admin-tab-content.active {
+            display: block;
+        }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 1rem;
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-width: 28rem;
+            width: 100%;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .modal-success {
+            border-top: 4px solid #10b981;
+        }
+        
+        .modal-error {
+            border-top: 4px solid #ef4444;
+        }
+        
+        .modal-warning {
+            border-top: 4px solid #f59e0b;
+        }
+        
+        .modal-info {
+            border-top: 4px solid #3b82f6;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 <body>
@@ -117,6 +174,91 @@
     let app, db, auth;
     let userId = null;
     let isAuthReady = false;
+
+    // Modal Utility Functions
+    const showModal = (message, type = 'info', options = {}) => {
+        return new Promise((resolve) => {
+            const {
+                confirmText = type === 'confirm' ? 'Confirm' : 'OK',
+                cancelText = 'Cancel',
+                showCancel = type === 'confirm',
+                onConfirm = () => {},
+                onCancel = () => {}
+            } = options;
+
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.id = 'global-modal';
+
+            const iconMap = {
+                success: '<svg class="w-12 h-12 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                error: '<svg class="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                warning: '<svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+                info: '<svg class="w-12 h-12 text-blue-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                confirm: '<svg class="w-12 h-12 text-blue-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+            };
+
+            modal.innerHTML = `
+                <div class="modal-content modal-${type === 'confirm' ? 'warning' : type}">
+                    <div class="p-6">
+                        ${iconMap[type] || iconMap.info}
+                        <div class="text-center mb-6">
+                            <p class="text-gray-800 text-lg font-medium whitespace-pre-line">${message}</p>
+                        </div>
+                        <div class="flex ${showCancel ? 'space-x-3' : 'justify-center'}">
+                            ${showCancel ? `
+                                <button id="modal-cancel" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg transition-all">
+                                    ${cancelText}
+                                </button>
+                            ` : ''}
+                            <button id="modal-confirm" class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg">
+                                ${confirmText}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const handleConfirm = () => {
+                modal.remove();
+                onConfirm();
+                resolve(true);
+            };
+
+            const handleCancel = () => {
+                modal.remove();
+                onCancel();
+                resolve(false);
+            };
+
+            document.getElementById('modal-confirm').onclick = handleConfirm;
+            if (showCancel) {
+                document.getElementById('modal-cancel').onclick = handleCancel;
+            }
+
+            modal.onclick = (e) => {
+                if (e.target === modal && !showCancel) {
+                    handleConfirm();
+                }
+            };
+
+            document.addEventListener('keydown', function escHandler(e) {
+                if (e.key === 'Escape') {
+                    if (showCancel) {
+                        handleCancel();
+                    } else {
+                        handleConfirm();
+                    }
+                    document.removeEventListener('keydown', escHandler);
+                }
+            });
+        });
+    };
+
+    window.showModal = showModal;
+    
 
     // --- FIX START: Define currentLang outside of the module scope for inline HTML handlers to access.    // However, since we are in a module, we will attach it to window for accessibility.
     let currentLang = localStorage.getItem('bafm_lang') || 'en';
@@ -592,7 +734,7 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
             <div class="mt-12">
                 <h2 class="text-3xl font-bold text-gray-800 mb-4">BAF-M Leadership</h2>
                 <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                    <p class="text-gray-700">Leadership bios will be displayed here, fetched from the Firestore 'leadership' collection.</p>
+                    <p class="text-gray-700">Leadership bios will be published here</p>
                 </div>
             </div>
         `;
@@ -802,13 +944,7 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
 
             // Simple required field check (does not validate conditional fields perfectly, but catches universals)
             if (!submissionType || !contactName || !contactEmail) {
-                // IMPORTANT: Replaced alert() with console error and visual cue
-                console.error(t('required_field_error'));
-                document.getElementById('submission-error-message').textContent = t('required_field_error');
-                document.getElementById('submission-error-message').classList.remove('hidden');
-                document.getElementById('submission-error-message').classList.remove('bg-green-100', 'text-green-700');
-                document.getElementById('submission-error-message').classList.add('bg-red-100', 'text-red-700');
-                setTimeout(() => document.getElementById('submission-error-message').classList.add('hidden'), 5000);
+                showModal(t('required_field_error'), 'error');
                 return;
             }
 
@@ -843,21 +979,12 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                     status: 'pending',
                     submitted_at: Timestamp.now(),
                 });
-                // IMPORTANT: Replaced alert() with console success and visual cue
-                document.getElementById('submission-error-message').textContent = t('submission_success');
-                document.getElementById('submission-error-message').classList.remove('hidden');
-                document.getElementById('submission-error-message').classList.remove('bg-red-100', 'text-red-700');
-                document.getElementById('submission-error-message').classList.add('bg-green-100', 'text-green-700');
-                
+                await showModal(t('submission_success'), 'success');
                 form.reset();
-                document.getElementById('conditional-fields-container').innerHTML = ''; // Clear fields
+                document.getElementById('conditional-fields-container').innerHTML = '';
             } catch (e) {
                 console.error("Error adding document: ", e);
-                // IMPORTANT: Replaced alert() with console error and visual cue
-                document.getElementById('submission-error-message').textContent = t('submission_error');
-                document.getElementById('submission-error-message').classList.remove('hidden');
-                document.getElementById('submission-error-message').classList.remove('bg-green-100', 'text-green-700');
-                document.getElementById('submission-error-message').classList.add('bg-red-100', 'text-red-700');
+                showModal(t('submission_error'), 'error');
             } finally {
                 document.getElementById('submit-button').disabled = false;
                 document.getElementById('submit-button').textContent = t('submit_button');
@@ -887,8 +1014,6 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
             <p class="text-lg text-gray-600 mb-8 max-w-4xl">${t('submit_hub_body')}</p>
 
             <div class="bg-white p-6 md:p-10 rounded-xl shadow-2xl border-t-4 border-indigo-600 max-w-3xl mx-auto">
-                <div id="submission-error-message" class="hidden p-3 mb-4 rounded-lg font-medium text-center transition-all bg-red-100 text-red-700" role="alert"></div>
-
                 <form id="submission-form">
                     <!-- Universal Fields -->
                     <div class="mb-6">
@@ -984,7 +1109,7 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
     };
     // ===== ADMIN HANDLERS - MUST BE DEFINED BEFORE renderAdminPortal =====
     // Create wrapper functions that look up the submission data from the window.adminSubmissions array
-    window.handleApprove = (submissionId) => {
+    window.handleApprove = async (submissionId) => {
         console.log("=== APPROVE HANDLER CALLED ===");
         console.log("Submission ID:", submissionId);
         console.log("Available submissions:", window.adminSubmissions);
@@ -992,15 +1117,24 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
         const submission = window.adminSubmissions.find(s => s.id === submissionId);
         if (!submission) {
             console.error("Submission not found:", submissionId);
-            alert("Error: Submission not found. Check console for details.");
+            showModal("Error: Submission not found. Check console for details.", 'error');
             return;
         }
         console.log("Found submission:", submission);
-        console.log("Calling approveSubmission...");
-        approveSubmission(submission.id, submission.submission_type, submission.payload);
+        
+        const confirmed = await showModal(
+            `Are you sure you want to APPROVE this ${submission.submission_type} submission?`,
+            'confirm',
+            { confirmText: 'Approve', cancelText: 'Cancel', showCancel: true }
+        );
+        
+        if (confirmed) {
+            console.log("Calling approveSubmission...");
+            approveSubmission(submission.id, submission.submission_type, submission.payload);
+        }
     };
 
-    window.handleReject = (submissionId) => {
+    window.handleReject = async (submissionId) => {
         console.log("=== REJECT HANDLER CALLED ===");
         console.log("Submission ID:", submissionId);
         console.log("Available submissions:", window.adminSubmissions);
@@ -1008,12 +1142,21 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
         const submission = window.adminSubmissions.find(s => s.id === submissionId);
         if (!submission) {
             console.error("Submission not found:", submissionId);
-            alert("Error: Submission not found. Check console for details.");
+            showModal("Error: Submission not found. Check console for details.", 'error');
             return;
         }
         console.log("Found submission:", submission);
-        console.log("Calling rejectSubmission...");
-        rejectSubmission(submission.id);
+        
+        const confirmed = await showModal(
+            'Are you sure you want to REJECT this submission?',
+            'confirm',
+            { confirmText: 'Reject', cancelText: 'Cancel', showCancel: true }
+        );
+        
+        if (confirmed) {
+            console.log("Calling rejectSubmission...");
+            rejectSubmission(submission.id);
+        }
     };
     // Edit published item
     window.editPublishedItem = (itemId, type) => {
@@ -1125,10 +1268,10 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
             const newDescBn = document.getElementById('edit-desc-bn').value.trim();
             const newLocation = document.getElementById('edit-location')?.value.trim() || '';
             
-            if (!newTitleEn) {
-                alert('Title (English) is required');
-                return;
-            }
+            if (!currentTitleEn) {
+            showModal('Title (English) is required', 'warning');
+            return;
+        }
             
             const updates = {
                 title_en: newTitleEn,
@@ -1200,7 +1343,7 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
     };
 
     // Delete published item
-    window.deletePublishedItem = (itemId, type) => {
+    window.deletePublishedItem = async (itemId, type) => {
         console.log("=== DELETE ITEM FUNCTION CALLED ===");
         console.log("Item ID:", itemId);
         console.log("Type:", type);
@@ -1223,7 +1366,13 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
         const item = window.publishedItemsRegistry[registryKey];
         const itemName = item ? (item.title_en || item.name || 'this item') : 'this item';
         
-        if (!confirm(`⚠️ Are you sure you want to DELETE "${itemName}"?\n\nThis action cannot be undone!`)) {
+        const confirmed = await showModal(
+            `⚠️ Are you sure you want to DELETE "${itemName}"?\n\nThis action cannot be undone!`,
+            'confirm',
+            { confirmText: 'Delete', cancelText: 'Cancel', showCancel: true }
+        );
+        
+        if (!confirmed) {
             return;
         }
         
@@ -1233,14 +1382,13 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
         // Delete from Firestore
         deleteDoc(doc(db, getPublicCollectionPath(collection), itemId))
             .then(() => {
-                alert('✅ Item deleted successfully!');
+                showModal('Item deleted successfully!', 'success');
                 console.log('Item deleted:', itemId);
-                // Remove from registry
                 delete window.publishedItemsRegistry[registryKey];
             })
             .catch(error => {
                 console.error('Error deleting item:', error);
-                alert('❌ Error deleting item: ' + error.message);
+                showModal('Error deleting item: ' + error.message, 'error');
             });
     };
     // Tab switching for admin portal
@@ -1478,8 +1626,6 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
         console.log("ID:", id);
         console.log("Type:", type);
         console.log("Payload String:", payloadString);
-        
-        if (!confirm(`Are you sure you want to APPROVE this ${type} submission?`)) return;
 
         try {
             // FIX: Reference the submission from the new global queue path
@@ -1510,7 +1656,7 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                 console.log("Parsing event date:", eventDateStr);
                 
                 if (!eventDateStr) {
-                    alert('Event date/time is required but was not provided.');
+                    showModal('Event date/time is required but was not provided.', 'error');
                     return;
                 }
                 
@@ -1528,7 +1674,7 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                     console.log("Successfully parsed date:", eventDate.toISOString());
                 } catch (error) {
                     console.error("Failed to parse date:", eventDateStr, error);
-                    alert(`Invalid date/time value. Please try selecting the date again.`);
+                    showModal('Invalid date/time value. Please try selecting the date again.', 'error');
                     return;
                 }
                 
@@ -1575,7 +1721,7 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                 console.log("Parsing volunteer date:", volunteerDateStr);
                 
                 if (!volunteerDateStr) {
-                    alert('Volunteer need date/time is required but was not provided.');
+                    showModal('Volunteer need date/time is required but was not provided.', 'error');
                     return;
                 }
                 
@@ -1591,7 +1737,7 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                     console.log("Successfully parsed volunteer date:", volunteerDate.toISOString());
                 } catch (error) {
                     console.error("Failed to parse date:", volunteerDateStr, error);
-                    alert(`Invalid date/time value. Please try selecting the date again.`);
+                    showModal('Invalid date/time value. Please try selecting the date again.', 'error');
                     return;
                 }
                 
@@ -1619,29 +1765,33 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                 break;
                 // Other types (Spotlight, etc.) would be handled here similarly.
             default:
-                alert(`Approval logic for type "${type}" is not implemented.`);
+                showModal(`Approval logic for type "${type}" is not implemented.`, 'warning');
                 return;
         }
 
         // Update status in the raw_submissions collection
             await updateDoc(submissionRef, { status: 'approved', review_date: Timestamp.now() });
             console.log(`Submission ${id} (${type}) approved and published.`);
-            alert(`✅ Submission approved and published successfully!`);
+            showModal('Submission approved and published successfully!', 'success');
             
         } catch (error) {
             console.error("=== ERROR IN APPROVE SUBMISSION ===");
             console.error("Error details:", error);
             console.error("Error stack:", error.stack);
-            alert(`❌ Error approving submission: ${error.message}\n\nCheck console for details.`);
+            showModal(`Error approving submission: ${error.message}\n\nCheck console for details.`, 'error');
         }
     };
 
     const rejectSubmission = async (id) => {
-        if (!confirm('Are you sure you want to REJECT this submission?')) return;
-        // FIX: Reference the submission from the new global queue path
-        const submissionRef = doc(db, getSubmissionsQueuePath(), id); 
-        await updateDoc(submissionRef, { status: 'rejected', review_date: Timestamp.now() });
-        console.log(`Submission ${id} rejected.`);
+        try {
+            const submissionRef = doc(db, getSubmissionsQueuePath(), id); 
+            await updateDoc(submissionRef, { status: 'rejected', review_date: Timestamp.now() });
+            console.log(`Submission ${id} rejected.`);
+            showModal('Submission rejected successfully.', 'success');
+        } catch (error) {
+            console.error('Error rejecting submission:', error);
+            showModal('Error rejecting submission: ' + error.message, 'error');
+        }
     };
 
     // Set up GLOBAL event delegation for edit and delete buttons (runs once)
