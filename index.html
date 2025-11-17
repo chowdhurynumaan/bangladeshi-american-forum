@@ -694,13 +694,21 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
             const selectedType = document.getElementById('submission_type')?.value;
             const fieldKeys = SUBMISSION_FIELDS[selectedType] || [];
 
+            // Determine if the current submission type is 'Event Submission'
+            const isEventSubmission = selectedType === '1. Event Submission';
+
             const fieldMap = {
                 'content_title': { label: t('field_content_title'), type: 'text', required: true, note: 'Bilingual translation encouraged.' },
                 'content_body': { label: t('field_content_body'), type: 'textarea', required: true, minWords: 150, note: t('field_min_150') },
                 'date_time': { label: t('field_date_time'), type: 'text', required: true, placeholder: '2025-12-31 18:00' },
                 'location': { label: t('field_location'), type: 'text', required: true, placeholder: '123 Main St, Warren MI' },
                 'skills': { label: t('field_skills'), type: 'text', required: true, placeholder: 'e.g., event setup, finance, graphic design' },
-                'image_upload': { label: t('field_image_upload'), type: 'text', required: false, placeholder: 'Paste image or logo URL here' },
+                'image_upload': { 
+                    label: t('field_image_upload'), 
+                    type: 'text', 
+                    required: isEventSubmission, 
+                    placeholder: 'Paste image or logo URL here' 
+                },
                 'why_help': { label: t('field_why_help'), type: 'textarea', required: false },
                 'expertise_area': { label: t('field_expertise_area'), type: 'text', required: true },
                 'goals_background': { label: t('field_goals_background'), type: 'textarea', required: true },
@@ -708,6 +716,7 @@ let isMobileMenuOpen = false; // NEW: State for mobile menu
             };
 
             return fieldKeys.map(key => {
+// ... (rest of the renderConditionalFields function)
                 const field = fieldMap[key];
                 if (!field) return '';
                 const id = `field_${key}`;
