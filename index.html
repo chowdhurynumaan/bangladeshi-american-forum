@@ -3,715 +3,861 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bangladeshi American Forum (BAF) of Michigan</title>
+    <title>BAF-M Digital Strategy Portal</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Lucide Icons for use as inline SVGs -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Use Inter font family -->
     <style>
-        /* Custom Font and Global Reset */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        .font-sans { font-family: 'Inter', sans-serif; }
-        
-        /* Ensures no horizontal scrolling on mobile */
-        html, body, .min-h-screen {
-          min-width: 100%; 
-          max-width: 100%;
-          overflow-x: hidden;
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
         }
-
-        /* Utility for dynamic SVG insertion */
-        [data-icon] { display: inline-block; vertical-align: middle; }
-
-        /* Style for the hero background image placeholder */
-        #hero-section {
-             /* Using the provided image file name */
-            background-image: url("image_2e65c5.jpg");
+        /* Custom scrollbar for better appearance */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #5a67d8; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: #e2e8f0; }
+        .transition-colors { transition: background-color 0.15s, color 0.15s; }
+        .grid-auto-fit {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        /* Style for the active nav link */
+        .nav-active {
+            color: #ffffff !important;
+            background-color: #38a169; /* BAF-M Primary Green */
+            border-radius: 9999px;
+            font-weight: 600;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col bg-gray-50 font-sans" onload="init()">
+<body>
 
-    <!-- Header -->
-    <header id="header" class="bg-white shadow-md sticky top-0 z-20">
-        <!-- CRITICAL FIX: Using max-w-screen-2xl mx-auto for responsive fluid centering -->
-        <div class="max-w-screen-2xl mx-auto px-4 py-4 flex justify-between items-center">
-            <!-- Logo -->
-            <div class="flex items-center space-x-2 cursor-pointer" onclick="setCurrentPage('home')">
-                <svg data-icon="Users" class="w-8 h-8 text-indigo-600"></svg>
-                <span class="text-xl font-bold text-gray-800">BAF</span>
-                <span class="hidden sm:inline text-sm text-gray-500"> | Michigan</span>
-            </div>
-
-            <!-- Desktop Navigation -->
-            <nav id="desktop-nav" class="hidden lg:flex space-x-6 flex-wrap justify-center">
-                <!-- Nav items will be generated here by JS -->
-            </nav>
-
-            <div class="flex items-center space-x-4">
-                <!-- Language Switcher -->
-                <div class="relative">
-                    <button
-                        onclick="toggleLanguage()"
-                        class="flex items-center text-gray-600 hover:text-indigo-600 transition"
-                        title="ভাষা"
-                    >
-                        <svg data-icon="Globe" class="w-5 h-5 mr-1"></svg>
-                        <span id="lang-switcher-text" class="text-sm font-medium uppercase">EN</span>
-                    </button>
-                </div>
-
-                <!-- Mobile Menu Button -->
-                <button class="lg:hidden text-gray-600" onclick="toggleMobileMenu()">
-                    <svg data-icon="Menu" class="w-6 h-6"></svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- Mobile Menu (Overlay) -->
-        <div id="mobile-menu" class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 hidden">
-            <div class="p-4 flex justify-end">
-                <button class="text-white" onclick="toggleMobileMenu()">
-                    <svg data-icon="X" class="w-8 h-8"></svg>
-                </button>
-            </div>
-            <nav id="mobile-nav" class="flex flex-col items-center space-y-6 text-2xl mt-10">
-                <!-- Mobile Nav items will be generated here by JS -->
-            </nav>
-        </div>
+<div id="app" class="min-h-screen flex flex-col">
+    <!-- Header/Navigation Bar -->
+    <header id="header" class="sticky top-0 z-50 bg-white shadow-lg">
+        <!-- Content will be rendered here by JS -->
     </header>
 
-    <!-- Main Content Area -->
-    <main id="main-content" class="flex-grow py-8 sm:py-12 w-full"></main>
+    <!-- Main Content Area (Routing Container) -->
+    <main id="content-container" class="flex-grow p-4 md:p-8">
+        <!-- Page content will be dynamically rendered here -->
+        <div class="max-w-7xl mx-auto">
+            <p id="loading-message" class="text-center text-gray-500 py-20">Loading application...</p>
+        </div>
+    </main>
 
     <!-- Footer -->
-    <footer id="footer" class="bg-gray-800 text-white">
-        <!-- Footer content will be generated by JS -->
+    <footer class="bg-gray-800 text-white p-6 text-center mt-auto">
+        <p>&copy; <span id="current-year"></span> Bangladeshi American Forum - Michigan Chapter (BAF-M)</p>
+        <p class="text-sm mt-1 text-gray-400">
+            Authenticated User ID: <span id="footer-user-id" class="font-mono text-xs ml-2">...</span>
+        </p>
     </footer>
+</div>
 
-    <script>
-        // --- DATA & STATE ---
+<!-- Firebase SDK Imports (Module setup) -->
+<script type="module">
+   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, Timestamp, getDocs, orderBy, limit, setLogLevel } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
-        const events = [
-            { id: 1, title_en: "March Community Dinner", title_bn: "মার্চ কমিউনিটি ডিনার", date: "2025-03-15", location: "Warren Community Center", description_en: "Join us for an evening of authentic Bangladeshi cuisine and community connection.", description_bn: "খাঁটি বাংলাদেশী খাবার এবং কমিউনিটি সংযোগের একটি সন্ধ্যায় আমাদের সাথে যোগ দিন।" },
-            { id: 2, title_en: "Youth Cultural Program", title_bn: "যুব সাংস্কৃতিক অনুষ্ঠান", date: "2025-03-22", location: "Sterling Heights Library", description_en: "Celebrating Bengali culture through music, dance, and art with our youth.", description_bn: "আমাদের যুবকদের সাথে সঙ্গীত, নৃত্য এবং শিল্পের মাধ্যমে বাংলা সংস্কৃতি উদযাপন।" },
-            { id: 3, title_en: "Tax Help Workshop", title_bn: "ট্যাক্স সহায়তা কর্মশালা", date: "2025-04-05", location: "Online via Zoom", description_en: "Free workshop on filing US taxes for community members.", description_bn: "কমিউনিটি সদস্যদের জন্য ইউএস ট্যাক্স ফাইল করার উপর বিনামূল্যে কর্মশালা।" }
+    // --- GLOBAL FIREBASE & APP CONFIGURATION (FIXED USE) ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyDtTKvYJjUYIvzcqOEXDwq3meVh2wHz3Qk",
+        authDomain: "bangladeshiamericanforum.firebaseapp.com",
+        projectId: "bangladeshiamericanforum",
+        storageBucket: "bangladeshiamericanforum.firebasestorage.app",
+        messagingSenderId: "362506019102",
+        appId: "1:362506019102:web:9b7842d64d99deda6ba90f"
+    };
+    const appId = firebaseConfig.appId; // Use the fixed appId
+    const initialAuthToken = null; // Always null since we are using fixed auth
+
+    // Set up global references
+    let app, db, auth;
+    let userId = null;
+    let isAuthReady = false;
+
+    // --- FIX START: Define currentLang outside of the module scope for inline HTML handlers to access.    // However, since we are in a module, we will attach it to window for accessibility.
+    let currentLang = localStorage.getItem('bafm_lang') || 'en';
+    window.currentLang = currentLang;
+    // --- FIX END
+
+    // Data storage (for real-time updates)
+    let events = [];
+    let spotlights = [];
+    let volunteerNeeds = [];
+    let localBusinesses = [];
+
+    // Utility to handle bilingual content lookup
+    const t = (key) => LANG_CONTENT[key] ? LANG_CONTENT[key][currentLang] : `MISSING_KEY:${key}`;
+    const t_data = (item, field) => item[`${field}_${currentLang}`] || item[field] || 'N/A';
+
+    // --- BILINGUAL CONTENT MAPPING (PART IV) ---
+    const LANG_CONTENT = {
+        // Navigation & Global
+        'nav_home': { 'en': 'Home', 'bn': 'হোম' },
+        'nav_spotlight': { 'en': 'Spotlight', 'bn': 'স্পটলাইট' },
+        'nav_events': { 'en': 'Events & Issues', 'bn': 'অনুষ্ঠান ও সমস্যা' },
+        'nav_volunteer': { 'en': 'Volunteering', 'bn': 'স্বেচ্ছাসেবক' },
+        'nav_submit': { 'en': 'Submissions Hub', 'bn': 'জমা দেওয়ার কেন্দ্র' },
+        'language_toggle': { 'en': 'BN', 'bn': 'EN' },
+        'loading_data': { 'en': 'Loading content...', 'bn': 'কন্টেন্ট লোড হচ্ছে...' },
+        'no_content_available': { 'en': 'No content available right now.', 'bn': 'বর্তমানে কোনো কন্টেন্ট নেই।' },
+
+        // Home Page (Part IV.A)
+        'hero_headline': { 'en': 'Connecting the Bangladeshi Community in Michigan, Where You Live.', 'bn': 'মিশিগানে বসবাসরত বাংলাদেশী কমিউনিটিকে একসূত্রে গাঁথা।' },
+        'hero_body': { 'en': 'Your reliable source for local news, events, and essential community resources across Warren, Sterling Heights, and Metro Detroit.', 'bn': 'স্থানীয় খবর, ইভেন্ট এবং মেট্রো ডেট্রয়েট, ওয়ারেন ও স্টার্লিং হাইটসের আশেপাশে প্রয়োজনীয় কমিউনিটি রিসোর্সের জন্য আপনার নির্ভরযোগ্য ঠিকানা।' },
+        'mission_title': { 'en': 'Our Mission', 'bn': 'আমাদের মিশন' },
+        'mission_body': { 'en': 'To assist the Bangladeshi American Muslim community by prioritizing issues concerning their welfare and interests, founded upon core Islamic values.', 'bn': 'ইসলামী মূল্যবোধের ভিত্তিতে বাংলাদেশি আমেরিকান মুসলমানদের স্বার্থসংশ্লিষ্ট বিষয়গুলোকে অগ্রাধিকার দিয়ে কমিউনিটিকে সহযোগিতা করা।' },
+        'vision_title': { 'en': 'Our Vision', 'bn': 'আমাদের ভিশন' },
+        'vision_body': { 'en': 'To be the premier, trusted hub for all Bangladeshi Americans across Michigan, recognized for promoting unity, advocacy, and economic empowerment within our local neighborhoods.', 'bn': 'মিশিগান জুড়ে সকল বাংলাদেশী আমেরিকানদের জন্য প্রথম ও বিশ্বস্ত কেন্দ্রে পরিণত হওয়া, যা আমাদের স্থানীয় আশেপাশে ঐক্য, অ্যাডভোকেসি এবং অর্থনৈতিক ক্ষমতায়ন প্রচারের জন্য পরিচিত।' },
+        'leadership_intro': { 'en': 'BAF-M is run by dedicated community leaders who volunteer their time and expertise. Transparency and accountability are our guiding principles. Learn more about the individuals steering our mission and join our growing team of dedicated volunteers.', 'bn': 'BAF-M পরিচালিত হয় নিবেদিতপ্রাণ কমিউনিটি নেতাদের দ্বারা, যারা তাদের সময় ও দক্ষতা স্বেচ্ছাসেবামূলকভাবে প্রদান করেন। স্বচ্ছতা ও জবাবদিহিতা আমাদের পথনির্দেশক নীতি। আমাদের মিশন পরিচালনাকারী ব্যক্তিরা সম্পর্কে জানুন এবং আমাদের নিবেদিত স্বেচ্ছাসেবকদের ক্রমবর্ধমান দলে যোগ দিন।' },
+        'cta_view_events': { 'en': 'VIEW UPCOMING EVENTS', 'bn': 'আসন্ন অনুষ্ঠান দেখুন' },
+        'cta_meet_leaders': { 'en': 'MEET OUR LEADERS', 'bn': 'আমাদের নেতাদের সাথে পরিচিত হন' },
+        'cta_submit_need': { 'en': 'SUBMIT CONTENT/NEED', 'bn': 'কন্টেন্ট/প্রয়োজন জমা দিন' },
+        'cta_find_resources': { 'en': 'FIND LOCAL RESOURCES (Directory)', 'bn': 'স্থানীয় রিসোর্স খুঁজুন (ডিরেক্টরি)' },
+        'cta_emergency_contacts': { 'en': 'VIEW EMERGENCY CONTACTS', 'bn': 'জরুরী যোগাযোগ নম্বর দেখুন' },
+        'featured_events_title': { 'en': 'Featured Upcoming Events', 'bn': 'ফিচারড আসন্ন অনুষ্ঠান' },
+        'quick_access_title': { 'en': 'Quick Access', 'bn': 'তাৎক্ষণিক প্রবেশাধিকার' },
+        // Home Page Core Programs (Part IV.F)
+        'program_1': { 'en': 'To unify the Bangladeshi American Muslim population.', 'bn': 'বাংলাদেশী আমেরিকান মুসলিম জনগোষ্ঠীকে ঐক্যবদ্ধ করা।' },
+        'program_2': { 'en': 'To try to provide overall cooperation in solving various social problems of the community.', 'bn': 'কমিউনিটির বিভিন্ন সামাজিক সমস্যা সমাধানে সার্বিক সহযোগিতা করার চেষ্টা করা।' },
+        'program_3': { 'en': 'To collaborate with the entire community in national and local elections to support qualified candidates.', 'bn': 'জাতীয় এবং লোকাল নির্বাচনে কমিউনিটির সবাইকে নিয়ে যোগ্য প্রার্থীকে সহযোগিতা করা।' },
+        'program_4': { 'en': 'To adopt various programs aimed at developing our next generation into ideal citizens based on correct values.', 'bn': 'আমাদের নেক্সট জেনারেশনকে সঠিক মূল্যবোধের ভিত্তিতে আদর্শ নাগরিক হিসেবে গড়ে তোলার লক্ষ্যে বিভিন্ন কর্মসূচি গ্রহণ করা।' },
+        'program_5': { 'en': 'To conduct necessary demonstrations to protect our beloved motherland Bangladesh from foreign aggression.', 'bn': 'প্রিয় মাতৃভূমি বাংলাদেশকে বৈদেশিক আগ্রাসনের হাত থেকে রক্ষা কল্পে প্রয়োজনীয় ডেমোস্ট্রেশন করা।' },
+        'program_6': { 'en': 'To cooperate in forming a patriotic government in the light of the majority Muslim consciousness.', 'bn': 'সংখ্যাগরিষ্ঠ মুসলমানদের চেতনার আলোকে দেশপ্রেমিক সরকার গঠনে সহযোগিতা করা।' },
+        'program_7': { 'en': 'To endeavor to build public opinion against crimes against humanity.', 'bn': 'মানবতাবিরোধী অপরাধের বিরুদ্ধে জনমত গড়ে তোলার প্রচেষ্টা চালানো।' },
+
+        // Spotlight Page (Part IV.B & C)
+        'spotlight_headline': { 'en': 'Community Spotlight, Leadership & Partners', 'bn': 'কমিউনিটি স্পটলাইট, নেতৃত্ব এবং অংশীদার' },
+        'spotlight_body': { 'en': 'This hub recognizes the individuals, leaders, and partners who make the BAF-M community strong. From our monthly volunteer recognition to our generous sponsors, this is where we celebrate success and foster collaboration.', 'bn': 'এই কেন্দ্রটি সেই ব্যক্তি, নেতা এবং অংশীদারদের সম্মান জানায় যারা BAF-M সম্প্রদায়কে শক্তিশালী করে তোলে। আমাদের মাসিক স্বেচ্ছাসেবক স্বীকৃতি থেকে শুরু করে আমাদের উদার স্পন্সর পর্যন্ত, এখানেই আমরা সাফল্য উদযাপন করি এবং সহযোগিতা বাড়াই।' },
+        'spotlight_cta_nominate': { 'en': 'NOMINATE A SPOTLIGHT', 'bn': 'একটি স্পটলাইট নমিনেশন করুন' },
+        'volunteer_otm_headline': { 'en': 'Volunteer of the Month', 'bn': 'এই মাসের স্বেচ্ছাসেবক' },
+        'sponsor_dir_headline': { 'en': 'BAF-M Sponsor Directory (Our Partners)', 'bn': 'BAF-M স্পন্সর ডিরেক্টরি (আমাদের অংশীদারগণ)' },
+        'sponsor_dir_body': { 'en': 'We are deeply grateful to the businesses and organizations whose financial support makes our community events and initiatives possible. All businesses listed here are BAF-M sponsors, ensuring they are dedicated partners to our mission. Click to view their websites and support those who support us!', 'bn': 'আমরা সেইসব ব্যবসা এবং সংস্থাগুলির কাছে গভীরভাবে কৃতজ্ঞ যাদের আর্থিক সহায়তা আমাদের কমিউনিটি ইভেন্ট এবং উদ্যোগগুলিকে সম্ভব করে তোলে। এখানে তালিকাভুক্ত সমস্ত ব্যবসা BAF-M এর স্পন্সর, যা নিশ্চিত করে যে তারা আমাদের মিশনের প্রতি নিবেদিত অংশীদার। তাদের ওয়েবসাইট দেখতে ক্লিক করুন এবং যারা আমাদের সমর্থন করে তাদের সমর্থন করুন!' },
+        'business_dir_title': { 'en': 'Local Business Directory', 'bn': 'স্থানীয় ব্যবসার ডিরেক্টরি' },
+        'biz_col_name': { 'en': 'Business Name / Organization', 'bn': 'ব্যবসা/সংস্থার নাম' },
+        'biz_col_category': { 'en': 'Category / Service Type', 'bn': 'ক্যাটাগরি / সেবার ধরণ' },
+        'biz_col_location': { 'en': 'Location / Address', 'bn': 'অবস্থান / ঠিকানা' },
+        'biz_col_details': { 'en': 'Key Details / Notes', 'bn': 'মূল তথ্য / নোট' },
+
+        // Events & Issues Page (Part IV.D)
+        'events_issues_headline': { 'en': 'Upcoming Events & Local Civic Issues', 'bn': 'আসন্ন অনুষ্ঠান এবং স্থানীয় নাগরিক সমস্যা' },
+        'events_issues_body': { 'en': 'Stay connected with BAF-M events, from cultural festivals to town halls, and track local policy decisions that impact your neighborhood. Use the Submissions tab to post an event or highlight a civic concern.', 'bn': 'সাংস্কৃতিক উৎসব থেকে শুরু করে টাউন হল পর্যন্ত BAF-M ইভেন্টগুলির সাথে সংযুক্ত থাকুন এবং আপনার আশেপাশের এলাকাকে প্রভাবিত করে এমন স্থানীয় নীতি সিদ্ধান্তগুলি ট্র্যাক করুন। একটি ইভেন্ট পোস্ট করতে বা নাগরিক উদ্বেগ তুলে ধরতে সাবমিশন ট্যাব ব্যবহার করুন।' },
+        'upcoming_events_title': { 'en': 'Upcoming Events', 'bn': 'আসন্ন অনুষ্ঠান' },
+        'past_events_title': { 'en': 'Past Events Gallery', 'bn': 'অতীত ইভেন্ট গ্যালারি' },
+        'civic_summaries_title': { 'en': 'Local Civic Summaries', 'bn': 'স্থানীয় নাগরিক সারাংশ' },
+        'event_location': { 'en': 'Location', 'bn': 'স্থান' },
+        'event_datetime': { 'en': 'Date & Time', 'bn': 'তারিখ ও সময়' },
+        'view_details': { 'en': 'বিস্তারিত দেখুন', 'bn': 'বিস্তারিত দেখুন' },
+
+        // Volunteering Page (Part IV.E)
+        'volunteer_headline': { 'en': 'Lend a Hand: Connect With Local Volunteer Opportunities', 'bn': 'হাত বাড়ান: স্থানীয় স্বেচ্ছাসেবার সুযোগগুলিতে যুক্ত হন' },
+        'volunteer_body': { 'en': 'Whether you need a few hours of help with a community event, or you\'re looking to share your skills with a neighbor, BAF-M\'s Volunteer Hub connects willing hands with real local needs. This is where we build Michigan\'s Bangladeshi community together. All applications and postings are handled via the dedicated Submissions tab.', 'bn': 'কমিউনিটির কোনো ইভেন্টে আপনার কয়েক ঘণ্টার সাহায্য দরকার হোক বা আপনি কোনো প্রতিবেশীর সাথে আপনার দক্ষতা ভাগ করে নিতে চান, BAF-M এর স্বেচ্ছাসেবক হাব ইচ্ছুক হাতগুলিকে স্থানীয় প্রকৃত প্রয়োজনের সাথে যুক্ত করে। এভাবেই আমরা মিশিগানের বাংলাদেশী সম্প্রদায়কে একসাথে গড়ে তুলি। সমস্ত আবেদন এবং পোস্টিং ডেডিকেটেড সাবমিশন ট্যাবের মাধ্যমে পরিচালিত হয়।' },
+        'needs_list_title': { 'en': 'Open Volunteer Needs', 'bn': 'খোলা স্বেচ্ছাসেবক প্রয়োজন' },
+        'skills_req_label': { 'en': 'Skills Required', 'bn': 'প্রয়োজনীয় দক্ষতা' },
+        'time_commitment': { 'en': 'Time Commitment', 'bn': 'সময় প্রতিশ্রুতি' },
+        'cta_i_want_to_volunteer': { 'en': 'SUBMIT: I WANT TO VOLUNTEER/APPLY NOW', 'bn': 'জমা দিন: স্বেচ্ছাসেবক হতে চাই/এখনই আবেদন করুন' },
+        'cta_post_a_need': { 'en': 'SUBMIT: POST A VOLUNTEER NEED', 'bn': 'জমা দিন: একটি স্বেচ্ছাসেবার প্রয়োজন পোস্ট করুন' },
+
+        // Submission Hub (Part IV.F)
+        'submit_hub_headline': { 'en': 'Community Content Submission Hub', 'bn': 'কমিউনিটি কন্টেন্ট জমা দেওয়ার কেন্দ্র' },
+        'submit_hub_body': { 'en': 'This is the unified intake form for all content, participation, and ideas. Please select the appropriate submission type below (Event, Issue, Volunteer, Spotlight, etc.) to ensure your request is routed to the correct BAF-M team for review and publishing.', 'bn': 'এটি সমস্ত কন্টেন্ট, অংশগ্রহণ এবং ধারণার জন্য একটি সমন্বিত ইনটেক ফর্ম। আপনার অনুরোধটি সঠিক BAF-M টিমের কাছে পর্যালোচনা এবং প্রকাশের জন্য পাঠানো হয়েছে তা নিশ্চিত করতে অনুগ্রহ করে নিচে সঠিক জমা দেওয়ার ধরণটি (অনুষ্ঠান, সমস্যা, স্বেচ্ছাসেবক, স্পটলাইট ইত্যাদি) নির্বাচন করুন।' },
+        'field_submission_type': { 'en': 'Submission Type', 'bn': 'জমা দেওয়ার ধরণ' },
+        'field_contact_name': { 'en': 'Your Name', 'bn': 'আপনার নাম' },
+        'field_contact_email': { 'en': 'Your Email', 'bn': 'আপনার ইমেল' },
+        'field_content_title': { 'en': 'Content Title (EN/BN)', 'bn': 'কন্টেন্ট শিরোনাম (EN/BN)' },
+        'field_content_body': { 'en': 'Content Body/Description (EN/BN)', 'bn': 'কন্টেন্ট বডি/বিবরণ (EN/BN)' },
+        'field_date_time': { 'en': 'Date/Time (YYYY-MM-DD HH:MM)', 'bn': 'তারিখ/সময় (YYYY-MM-DD HH:MM)' },
+        'field_location': { 'en': 'Location/Address', 'bn': 'অবস্থান/ঠিকানা' },
+        'field_skills': { 'en': 'Skills/Expertise (Comma-separated)', 'bn': 'দক্ষতা/বিশেষজ্ঞতা (কমা দ্বারা বিভক্ত)' },
+        'field_image_upload': { 'en': 'Image Upload Link (Optional)', 'bn': 'ছবি আপলোড লিঙ্ক (ঐচ্ছিক)' },
+        'field_why_help': { 'en': 'Why I want to help (Optional)', 'bn': 'আমি কেন সাহায্য করতে চাই (ঐচ্ছিক)' },
+        'field_expertise_area': { 'en': 'Expertise Area (e.g., Finance, IT)', 'bn': 'বিশেষজ্ঞতার ক্ষেত্র (যেমন: অর্থ, আইটি)' },
+        'field_goals_background': { 'en': 'Goals/Background (Required)', 'bn': 'লক্ষ্য/পটভূমি (আবশ্যক)' },
+        'field_area_of_need': { 'en': 'Area of Need (e.g., Resume review, Coding)', 'bn': 'প্রয়োজনের ক্ষেত্র (যেমন: জীবনবৃত্তান্ত পর্যালোচনা, কোডিং)' },
+        'field_general_inquiry': { 'en': 'General Inquiry/Idea', 'bn': 'সাধারণ জিজ্ঞাসা/ধারণা' },
+        'field_min_150': { 'en': 'Minimum 150 words required for this field.', 'bn': 'এই ফিল্ডের জন্য ন্যূনতম ১৫০ শব্দ আবশ্যক।' },
+        'submission_success': { 'en': 'Submission successful! A BAF-M team member will review your request shortly.', 'bn': 'জমা দেওয়া সফল হয়েছে! BAF-M টিমের একজন সদস্য শীঘ্রই আপনার অনুরোধটি পর্যালোচনা করবেন।' },
+        'submission_error': { 'en': 'Submission failed. Please check the console for details.', 'bn': 'জমা দিতে ব্যর্থ। বিস্তারিত জানার জন্য কনসোল পরীক্ষা করুন।' },
+        'submit_button': { 'en': 'Submit Request', 'bn': 'অনুরোধ জমা দিন' },
+        'required_field_error': { 'en': 'Please fill out all required fields.', 'bn': 'অনুগ্রহ করে সমস্ত প্রয়োজনীয় ফিল্ড পূরণ করুন।' },
+
+        // Submission Type Options
+        'type_event': { 'en': '1. Event Submission', 'bn': '১. অনুষ্ঠান জমা' },
+        'type_issue': { 'en': '2. Local Civic Issue', 'bn': '২. স্থানীয় নাগরিক সমস্যা' },
+        'type_volunteer_post': { 'en': '3. Volunteer Need (Post)', 'bn': '৩. স্বেচ্ছাসেবক প্রয়োজন (পোস্ট)' },
+        'type_volunteer_apply': { 'en': '4. I Want To Volunteer', 'bn': '৪. আমি স্বেচ্ছাসেবক হতে চাই' },
+        'type_mentor_offer': { 'en': '5. Mentorship Offer', 'bn': '৫. মেন্টরশিপ অফার' },
+        'type_mentor_request': { 'en': '6. Mentorship Request', 'bn': '৬. মেন্টরশিপের অনুরোধ' },
+        'type_inquiry': { 'en': '7. General Inquiry', 'bn': '৭. সাধারণ জিজ্ঞাসা' },
+        'type_spotlight': { 'en': '8. Local Spotlight Nomination', 'bn': '৮. স্থানীয় স্পটলাইট নমিনেশন' },
+    };
+
+    const SUBMISSION_FIELDS = {
+        '1. Event Submission': ['content_title', 'content_body', 'date_time', 'location', 'image_upload'],
+        '2. Local Civic Issue': ['content_title', 'content_body', 'date_time', 'location', 'image_upload'],
+        '3. Volunteer Need (Post)': ['content_title', 'content_body', 'date_time', 'location', 'skills'],
+        '4. I Want To Volunteer': ['why_help', 'skills'],
+        '5. Mentorship Offer': ['expertise_area', 'content_body', 'skills'],
+        '6. Mentorship Request': ['area_of_need', 'goals_background', 'skills'],
+        '7. General Inquiry': ['content_title', 'content_body'],
+        '8. Local Spotlight Nomination': ['content_title', 'content_body', 'location', 'image_upload'],
+    };
+
+    // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
+    const initializeAppAndAuth = async () => {
+        try {
+            setLogLevel('debug'); // Enable Firestore logging
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
+
+            onAuthStateChanged(auth, (user) => {
+                userId = user ? user.uid : 'anonymous-' + crypto.randomUUID();
+                isAuthReady = true;
+                document.getElementById('footer-user-id').textContent = userId;
+                setupFirestoreListeners();
+                renderApp();
+            });
+        } catch (error) {
+            console.error("Firebase Initialization/Auth Error:", error);
+            document.getElementById('loading-message').textContent = `Initialization Error: ${error.message}. Check console.`;
+        }
+    };
+
+    // --- FIREBASE DATA LISTENERS (onSnapshot) ---
+    const getPublicCollectionPath = (collectionName) => `/artifacts/${appId}/public/data/${collectionName}`;
+    const getUserCollectionPath = () => `/artifacts/${appId}/users/${userId}/raw_submissions`;
+
+    const setupFirestoreListeners = () => {
+        if (!isAuthReady) return;
+
+        // 1. Events & Calendar (Public)
+        onSnapshot(collection(db, getPublicCollectionPath('events')), (snapshot) => {
+            events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            events.sort((a, b) => (a.event_datetime.toMillis() - b.event_datetime.toMillis()));
+            renderApp();
+        }, (error) => console.error("Error fetching events:", error));
+
+        // 2. Spotlight Features (Public)
+        onSnapshot(collection(db, getPublicCollectionPath('spotlights')), (snapshot) => {
+            spotlights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderApp();
+        }, (error) => console.error("Error fetching spotlights:", error));
+
+        // 3. Volunteer Needs (Public)
+        onSnapshot(query(collection(db, getPublicCollectionPath('volunteer_needs')), where('is_active', '==', true)), (snapshot) => {
+            volunteerNeeds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderApp();
+        }, (error) => console.error("Error fetching volunteer needs:", error));
+
+        // 4. Local Business Directory (Public)
+        onSnapshot(collection(db, getPublicCollectionPath('local_businesses')), (snapshot) => {
+            localBusinesses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderApp();
+        }, (error) => console.error("Error fetching local businesses:", error));
+
+        // Note: Civic Issues (civic_issues) and Leadership (leadership) could be added here similarly.
+    };
+
+    // --- LANGUAGE SWITCHING (attached to window) ---
+    window.setLanguage = (lang) => {
+        currentLang = lang;
+        window.currentLang = lang; // Keep window.currentLang updated
+        localStorage.setItem('bafm_lang', lang);
+        renderApp();
+        renderHeader(); // Ensure the toggle button text updates immediately
+    };
+
+    // --- ROUTING & PAGE RENDERING (Using Hash-based routing to avoid SecurityError) ---
+    const routeMap = {
+        '/': 'home',
+        '/spotlight': 'spotlight',
+        '/events-and-issues': 'events',
+        '/volunteer': 'volunteer',
+        '/submit-content': 'submit',
+    };
+
+    const getPageFromPath = (path) => {
+        // Path starts with / and is defined in routeMap (e.g., '/spotlight')
+        return routeMap[path] || 'home';
+    };
+
+    // Function to handle route change based on a path (e.g., '/')
+    // Attached to window for inline HTML access
+    window.navigateTo = (path) => {
+        currentPage = getPageFromPath(path);
+        // Safely update the URL hash
+        window.location.hash = path;
+        renderApp();
+    };
+
+    // Determine initial page state from the hash
+    const initialHash = window.location.hash.substring(1) || '/';
+    let currentPage = getPageFromPath(initialHash);
+
+    // Set up hash change listener (replaces onpopstate)
+    window.onhashchange = () => {
+        const newHash = window.location.hash.substring(1) || '/';
+        currentPage = getPageFromPath(newHash);
+        renderApp();
+    };
+
+    const renderHeader = () => {
+        const navItems = [
+            { path: '/', key: 'nav_home' },
+            { path: '/spotlight', key: 'nav_spotlight' },
+            { path: '/events-and-issues', key: 'nav_events' },
+            { path: '/volunteer', key: 'nav_volunteer' },
+            { path: '/submit-content', key: 'nav_submit' },
         ];
 
-        const directoryMembers = [
-            { role_en: "President", role_bn: "সভাপতি", contact_en: "Inaugural Leadership is being finalized.", contact_bn: "উদ্বোধনী নেতৃত্ব চূড়ান্ত করা হচ্ছে।" },
-            { role_en: "General Secretary", role_bn: "সাধারণ সম্পাদক", contact_en: "Contact via the General Inquiry Form.", contact_bn: "সাধারণ অনুসন্ধান ফর্মের মাধ্যমে যোগাযোগ করুন।" },
-            { role_en: "Treasurer", role_bn: "কোষাধ্যক্ষ", contact_en: "Internal Appointment Pending.", contact_bn: "অভ্যন্তরীণ নিয়োগ বিচারাধীন।" },
-            { role_en: "Cultural Affairs Coordinator", role_bn: "সাংস্কৃতিক বিষয়ক সমন্বয়কারী", contact_en: "Volunteer application currently open.", contact_bn: "স্বেচ্ছাসেবক আবেদন বর্তমানে খোলা আছে।" },
+        // Determine the target language for the toggle button
+        const targetLang = currentLang === 'en' ? 'bn' : 'en';
+
+        const headerHtml = `
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-20">
+                    <a href="#/" onclick="event.preventDefault(); navigateTo('/')" class="text-2xl font-bold text-green-700 hover:text-green-900 transition-colors rounded-lg p-2">BAF-M</a>
+
+                    <!-- Desktop Nav -->
+                    <nav class="hidden md:flex space-x-2">
+                        ${navItems.map(item => `
+                            <a href="#${item.path}"
+                                onclick="event.preventDefault(); navigateTo('${item.path}')"
+                                class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors
+                                ${currentPage === item.key.replace('nav_', '').split('-')[0] ? 'nav-active' : 'hover:bg-gray-100 rounded-full'}"
+                            >
+                                ${t(item.key)}
+                            </a>
+                        `).join('')}
+                    </nav>
+
+                    <!-- Language Toggle & Mobile Menu -->
+                    <div class="flex items-center space-x-4">
+                        <!-- FIX: Call setLanguage directly with the target language to avoid relying on currentLang in the inline handler -->
+                        <button onclick="setLanguage('${targetLang}')"
+                            class="text-sm font-bold w-12 h-8 rounded-full transition-colors ${currentLang === 'bn' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'} shadow-md">
+                            ${t('language_toggle')}
+                        </button>
+                        <!-- Mobile Menu Button (omitted for single-view app simplicity but structure allows it) -->
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('header').innerHTML = headerHtml;
+    };
+
+    const renderHome = () => {
+        const featuredEvents = events.filter(e => e.event_datetime.toMillis() > Date.now()).slice(0, 3);
+        const eventCards = featuredEvents.length > 0 ? featuredEvents.map(event => `
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                <h3 class="text-xl font-semibold mb-2 text-green-700">${t_data(event, 'title')}</h3>
+                <p class="text-sm text-gray-500 mb-3"><strong class="font-medium">${t('event_datetime')}:</strong> ${new Date(event.event_datetime.toMillis()).toLocaleString(currentLang === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                <p class="text-gray-700 mb-4 line-clamp-3">${t_data(event, 'desc')}</p>
+                <a href="#/events-and-issues" onclick="event.preventDefault(); navigateTo('/events-and-issues')" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">${t('view_details')} &rarr;</a>
+            </div>
+        `).join('') : `<p class="col-span-3 text-center text-gray-500">${t('no_content_available')}</p>`;
+
+        const programs = [
+            'program_1', 'program_2', 'program_3', 'program_4',
+            'program_5', 'program_6', 'program_7'
         ];
 
-        const communityResources = [
-            { name: "Amar Pizza", sector: "Restaurant/Food", address: "12195 Joseph Campau, Hamtramck", details: "Bangladeshi-style pizza and burgers; highly rated" },
-            { name: "Zamzam Restaurant", sector: "Restaurant/Food", address: "11917 Conant St., Hamtramck", details: "Traditional Bangladeshi dining" },
-            { name: "Bonoful Sweets & Cafe", sector: "Sweets/Café/Restaurant", address: "12085 Conant Ave., Hamtramck", details: "Offers Indian, Pakistani, and Bangladeshi sweets and fare" },
-            { name: "Al Amin Super Market", sector: "Grocery/Halal Retail", address: "11920 Conant St., Hamtramck", details: "Bangladeshi grocery, frozen fish, halal meat; noted as 'cash only'" },
-            { name: "Hera Fish Market / Hera Food Mart", sector: "Grocery/Imported Fish", address: "30-11 Holbrook Street, Hamtramck, MI 48212", details: "Specializes in imported frozen Bangladeshi fish (Ayre, Hilsa, Chingri) and Zabihah Halal meat" },
-            { name: "Nina Fashion & Fabrics", sector: "Clothing/Fashion Retail", address: "11627 Conant St., Hamtramck", details: "Clothing and fashion for Bangladeshi women, located on 'Little Bangladesh' (Conant Street)" },
-            { name: "Real Estate Advantage", sector: "Real Estate", address: "3100 Caniff Ave., Hamtramck, MI 48212", details: "Professional Bangladeshi Real Estate business; agents include Syed Shahedul Hoque and Mohammad Naser" },
-            { name: "Bangla Remodeling", sector: "Construction/Trades", address: "Hamtramck-based", details: "Construction and remodeling company targeting local Bangladeshi clientele" },
-            { name: "Bangladeshi American Comm. Svcs. Inc. (BACSI)", sector: "Social Services/Non-Profit", address: "12818 Joseph Campau, Hamtramck", details: "Provides essential community and social services" },
-            { name: "Adda Music Cafe and Restaurant", sector: "Restaurant/Food/Cafe", address: "Warren, MI", details: "Designed as a family-friendly social space; offers Bangladeshi specialty and street food" },
-            { name: "Hera Food Mart (Warren location)", sector: "Grocery/Halal Retail", address: "28756 Ryan Rd., Warren, MI 48092", details: "Second location of Hera Food Mart, serving the growing community in Macomb County" },
-            { name: "Bangladesh Association of Michigan (BAM)", sector: "Community Association/Non-Profit", address: "24163 Joanne Ave, Warren, MI 48091", details: "Community anchor; organizes cultural events and consulate services; 501(C)(3) organization" },
-            { name: "mQrg, LLC (Charlevoix Facility)", sector: "Auto Repair/Industrial Service", address: "12141 Charlevoix St., Detroit, MI 48215", details: "Provides high-skill, specialized services including mechanical repair, engine work, and electronic module re-flashing" },
-            { name: "mQrg, LLC (Flat Rock Facility)", sector: "Auto Repair/Industrial Service", address: "29500 Gateway Drive, Flat Rock, MI 48134", details: "Second location offering specialized industrial services" },
-            { name: "Sonali Exchange Co. Inc.", sector: "Money Transfer / Finance", address: "Licensed in Michigan (NY HQ)", details: "Formal remittance service; subsidiary of Sonali Bank, Ltd. (Bangladesh's largest commercial bank), licensed in Michigan" },
-            { name: "Noor Chowdhury (Realtor)", sector: "Real Estate Agent", address: "36250 Dequindre Rd. Ste. 100, Sterling Heights, MI 48310", details: "Real estate agent focused on the suburban Macomb County market" },
-            { name: "Zafreen's Kitchen", sector: "Catering", address: "Metro Detroit (Home-based/Catering)", details: "Woman-led catering business specializing in Bangladeshi cuisine" },
-            { name: "Armario Collection", sector: "Niche Retail/Clothing", address: "Metro Detroit (Home-based)", details: "Woman-led clothing brand" }
-        ];
+        return `
+            <!-- Hero Section -->
+            <div class="text-center py-12 md:py-20 bg-green-50 rounded-2xl shadow-inner mb-12">
+                <h1 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4 max-w-4xl mx-auto leading-tight">${t('hero_headline')}</h1>
+                <p class="text-lg text-gray-600 mb-8 max-w-3xl mx-auto">${t('hero_body')}</p>
+                <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <button onclick="navigateTo('/events-and-issues')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition-colors shadow-lg">${t('cta_view_events')}</button>
+                    <button onclick="navigateTo('/submit-content')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full transition-colors shadow-lg">${t('cta_submit_need')}</button>
+                </div>
+            </div>
 
-        const translations = {
-            en: {
-                nav: { home: 'Home', about: 'About', events: 'Events', directory: 'BAF Committee', resources: 'Community Resources', action: 'Take Action', lang: 'ভাষা' },
-                hero: { title: 'Building Bridges, Celebrating Culture.', subtitle: 'The Bangladeshi American Forum (BAF) of Michigan unites and empowers our community.', button: 'Join Us Today' },
-                about: { title: 'Our Mission', content1: 'The Bangladeshi American Forum (BAF) is a non-profit organization dedicated to fostering cultural heritage, community engagement, and civic participation among Bangladeshi Americans in Michigan.', content2: 'We organize various social, cultural, and educational programs throughout the year to serve our members and promote a deeper understanding of our culture.', full_text_1: "The Bangladeshi American Forum (BAF) of Michigan has been a pillar of the community since its inception. We are committed to fostering unity, preserving our rich cultural heritage, and ensuring the next generation remains connected to their roots.", full_text_2: "Our activities focus on three core areas: Cultural Celebrations (hosting events like Pohela Boishakh and Victory Day), Community Service (providing support and resources to new immigrants), and Civic Engagement (encouraging participation in local and state government). Join us in building a stronger, more vibrant Bangladeshi American presence in Michigan." },
-                events: { title: 'Upcoming Events', view_all: 'View All Events', date: 'Date', location: 'Location', register: 'Register', more_soon: 'More events will be announced soon!' },
-                directory: { title: 'BAF Executive Committee & Leadership', role: 'Leadership Role', status: 'Status & Contact', note: 'The BAF Executive Committee is currently in its founding phase. Direct contact for all roles is managed through the general inquiry form.' },
-                resources: { title: 'Bangladeshi Community Resources', subtitle: 'A directory of businesses, organizations, and services across Metro Detroit.', search_placeholder: 'Search by Name, Sector, or Location...', sector: 'Sector', location: 'Location', details: 'Details', no_match: 'No resources match your search criteria.' },
-                action: { title: 'Take Action & Get Involved', membership: 'Become a Member', membership_desc: 'Support our mission and gain access to member-exclusive events and resources.', volunteer: 'Volunteer with Us', volunteer_desc: 'Lend your skills and time to help organize our community programs and initiatives.', donate: 'Donate', donate_desc: 'Your contribution helps fund our cultural and social welfare activities.', support_tag: 'Your support is vital for our community programs, cultural events, and social welfare initiatives.', apply: 'Apply Now', signup: 'Sign Up', give: 'Give Now' },
-                contact: { title: 'Contact Us', address_label: 'Mailing Address', address: 'Official Mailing Address (Provided upon formal incorporation and registration)', phone_label: 'Phone Line', phone: 'All inquiries should be submitted via the contact form.', email_label: 'Official Email', email: 'Official communication is managed through the central contact form.', warning: "🚨 Note: Physical location, phone, and direct email details are currently being finalized. Please use the form below for all communication.", message: 'Send us a message', name_placeholder: 'Your Name', email_placeholder: 'Your Email', msg_placeholder: 'Your Message', send: 'Send Message' },
-                footer: { links: 'Quick Links', legal: 'Legal & Info' }
-            },
-            bn: {
-                nav: { home: 'হোম', about: 'আমাদের সম্পর্কে', events: 'অনুষ্ঠানসমূহ', directory: 'BAF কমিটি', resources: 'কমিউনিটি সম্পদ', action: 'অংশগ্রহণ করুন', lang: 'Language' },
-                hero: { title: 'সেতুবন্ধন, সংস্কৃতি উদযাপন।', subtitle: 'মিশিগানের বাংলাদেশী আমেরিকান ফোরাম (বিএএফ) আমাদের কমিউনিটিকে একত্রিত ও শক্তিশালী করে।', button: 'আজই যোগ দিন' },
-                about: { title: 'আমাদের লক্ষ্য', content1: 'বাংলাদেশী আমেরিকান ফোরাম (বিএএফ) হলো একটি অলাভজনক সংস্থা যা মিশিগানের বাংলাদেশী আমেরিকানদের মধ্যে সাংস্কৃতিক ঐতিহ্য, কমিউনিটির অংশগ্রহণ এবং নাগরিক সচেতনতা বৃদ্ধি করতে নিবেদিত।', content2: 'আমরা আমাদের সদস্যদের সেবা করতে এবং আমাদের সংস্কৃতি সম্পর্কে গভীর বোঝাপড়া প্রচার করতে সারা বছর বিভিন্ন সামাজিক, সাংস্কৃতিক এবং শিক্ষামূলক অনুষ্ঠানের আয়োজন করি।', full_text_1: "মিশিগানের বাংলাদেশী আমেরিকান ফোরাম (বিএএফ) প্রতিষ্ঠার পর থেকে কমিউনিটির একটি ভিত্তি হিসেবে কাজ করছে। আমরা ঐক্য স্থাপন, আমাদের সমৃদ্ধ সাংস্কৃতিক ঐতিহ্য সংরক্ষণ, এবং পরবর্তী প্রজন্মকে তাদের শিকড়ের সাথে সংযুক্ত রাখা নিশ্চিত করার জন্য প্রতিশ্রুতিবদ্ধ।", full_text_2: "আমাদের কার্যক্রম তিনটি মূল ক্ষেত্রের উপর মনোযোগ দেয়: সাংস্কৃতিক উদযাপন (পহেলা বৈশাখ এবং বিজয় দিবসের মতো অনুষ্ঠানের আয়োজন), কমিউনিটি সেবা (নতুন অভিবাসীদের সহায়তা এবং সংস্থান সরবরাহ), এবং নাগরিক অংশগ্রহণ (স্থানীয় এবং রাষ্ট্রীয় সরকারে অংশগ্রহণে উৎসাহিত করা)। মিশিগানে একটি শক্তিশালী, আরও প্রাণবন্ত বাংলাদেশী আমেরিকান উপস্থিতি গড়ে তুলতে আমাদের সাথে যোগ দিন।"},
-                events: { title: 'আসন্ন অনুষ্ঠানসমূহ', view_all: 'সকল অনুষ্ঠান দেখুন', date: 'তারিখ', location: 'স্থান', register: 'নিবন্ধন করুন', more_soon: 'আরও অনুষ্ঠান শীঘ্রই ঘোষণা করা হবে!' },
-                directory: { title: 'BAF কার্যনির্বাহী কমিটি ও নেতৃত্ব', role: 'নেতৃত্বের ভূমিকা', status: 'অবস্থা ও যোগাযোগ', note: 'BAF কার্যনির্বাহী কমিটি বর্তমানে এর প্রতিষ্ঠাকালীন পর্যায়ে রয়েছে। সকল ভূমিকার জন্য সরাসরি যোগাযোগ সাধারণ অনুসন্ধান ফর্মের মাধ্যমে পরিচালিত হয়।' },
-                resources: { title: 'বাংলাদেশী কমিউনিটি সম্পদ', subtitle: 'মেট্রো ডেট্রয়েট জুড়ে ব্যবসা, সংস্থা এবং পরিষেবাগুলির একটি ডিরেক্টরি।', search_placeholder: 'নাম, সেক্টর বা স্থান দ্বারা অনুসন্ধান করুন...', sector: 'সেক্টর', location: 'স্থান', details: 'বিবরণ', no_match: 'আপনার অনুসন্ধানের মানদণ্ডের সাথে কোনো সম্পদ মেলে না।' },
-                action: { title: 'অংশগ্রহণ ও সংযুক্ত হন', membership: 'সদস্য হন', membership_desc: 'আমাদের লক্ষ্যকে সমর্থন করুন এবং সদস্য-একচেটিয়া ইভেন্ট এবং সংস্থানগুলিতে অ্যাক্সেস পান।', volunteer: 'স্বেচ্ছাসেবক হোন', volunteer_desc: 'আমাদের কমিউনিটি প্রোগ্রাম এবং উদ্যোগগুলি সংগঠিত করতে আপনার দক্ষতা এবং সময় দিন।', donate: 'দান করুন', donate_desc: 'আপনার অবদান আমাদের সাংস্কৃতিক ও সমাজকল্যাণমূলক কার্যক্রমকে অর্থায়ন করতে সাহায্য করে।', support_tag: 'আমাদের কমিউনিটি প্রোগ্রাম, সাংস্কৃতিক অনুষ্ঠান এবং সমাজকল্যাণমূলক উদ্যোগের জন্য আপনার সমর্থন অপরিহার্য।', apply: 'এখনই আবেদন করুন', signup: 'স্বেচ্ছাসেবক হোন', give: 'এখনই দান করুন' },
-                contact: { title: 'যোগাযোগ করুন', address_label: 'ডাক ঠিকানা', address: 'অফিসিয়াল ডাক ঠিকানা (আনুষ্ঠানিক সংস্থা এবং নিবন্ধনের পরে প্রদান করা হবে)', phone_label: 'ফোন লাইন', phone: 'সমস্ত অনুসন্ধান যোগাযোগ ফর্মের মাধ্যমে জমা দিতে হবে।', email_label: 'অফিসিয়াল ইমেল', email: 'অফিসিয়াল যোগাযোগ কেন্দ্রীয় যোগাযোগ ফর্মের মাধ্যমে পরিচালিত হয়।', warning: "🚨 দ্রষ্টব্য: শারীরিক অবস্থান, ফোন এবং সরাসরি ইমেলের বিবরণ বর্তমানে চূড়ান্ত করা হচ্ছে। সমস্ত যোগাযোগের জন্য অনুগ্রহ করে নীচের ফর্মটি ব্যবহার করুন।", message: 'আমাদের বার্তা পাঠান', name_placeholder: 'আপনার নাম', email_placeholder: 'আপনার ইমেল', msg_placeholder: 'আপনার বার্তা', send: 'বার্তা পাঠান' },
-                footer: { links: 'দ্রুত লিঙ্ক', legal: 'আইনগত ও তথ্য' }
+            <!-- Mission, Vision & Leadership -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+                <div class="bg-white p-8 rounded-xl shadow-lg border-t-4 border-green-500">
+                    <h2 class="text-2xl font-bold mb-3 text-gray-800">${t('mission_title')}</h2>
+                    <p class="text-gray-600">${t('mission_body')}</p>
+                </div>
+                <div class="bg-white p-8 rounded-xl shadow-lg border-t-4 border-indigo-500">
+                    <h2 class="text-2xl font-bold mb-3 text-gray-800">${t('vision_title')}</h2>
+                    <p class="text-gray-600">${t('vision_body')}</p>
+                </div>
+                <div class="bg-white p-8 rounded-xl shadow-lg border-t-4 border-yellow-500">
+                    <h2 class="text-2xl font-bold mb-3 text-gray-800">Leadership</h2>
+                    <p class="text-gray-600 mb-4">${t('leadership_intro')}</p>
+                    <button onclick="navigateTo('/spotlight')" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">${t('cta_meet_leaders')} &rarr;</button>
+                </div>
+            </div>
+
+            <!-- Core Programs (Mandatory List) -->
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">${t('mission_title')} / ${t('vision_title')}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+                ${programs.map(key => `
+                    <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200 flex items-start space-x-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="text-gray-700 text-sm">${t(key)}</p>
+                    </div>
+                `).join('')}
+            </div>
+
+
+            <!-- Featured Events & Quick Access -->
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('featured_events_title')}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                ${eventCards}
+            </div>
+
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('quick_access_title')}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <button onclick="navigateTo('/spotlight')" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-md text-lg">${t('cta_find_resources')}</button>
+                <a href="tel:911" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-md text-lg text-center">${t('cta_emergency_contacts')} (911)</a>
+                <button onclick="navigateTo('/submit-content')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-md text-lg">${t('cta_submit_need')}</button>
+            </div>
+        `;
+    };
+
+    const renderSpotlight = () => {
+        // Mock data/logic for dynamic sections until proper collections are fetched/populated
+        const businessDirectory = renderBusinessDirectory();
+
+        // Use the first item from spotlights collection as the feature, filter by type if needed
+        const featuredSpotlight = spotlights.find(s => s.type === 'Business' || s.type === 'Story') || {
+            title_en: 'Default Spotlight Feature: Community Hero!',
+            title_bn: 'ডিফল্ট স্পটলাইট ফিচার: কমিউনিটি হিরো!',
+            story_en: 'This is a rotating feature on a local business or compelling community story. This content is dynamically loaded from the Firestore "spotlights" collection.',
+            story_bn: 'এটি একটি স্থানীয় ব্যবসা বা আকর্ষণীয় কমিউনিটি গল্পের উপর একটি আবর্তিত ফিচার। এই কন্টেন্টটি ফায়ারস্টোর "spotlights" কালেকশন থেকে ডাইনামিকভাবে লোড হয়।',
+            posted_date: Timestamp.fromDate(new Date())
+        };
+
+        const volunteerOfTheMonth = spotlights.find(s => s.type === 'VolunteerOTM') || {
+            title_en: 'Volunteer Name: Jane Doe',
+            title_bn: 'স্বেচ্ছাসেবকের নাম: জেন ডো',
+            story_en: 'Thank you to Jane Doe for her outstanding service this month! We appreciate your commitment.',
+            story_bn: 'এই মাসে জেন ডো-কে তার অসাধারণ সেবার জন্য ধন্যবাদ! আমরা আপনার প্রতিশ্রুতির প্রশংসা করি।',
+        };
+
+        return `
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-4">${t('spotlight_headline')}</h1>
+            <p class="text-lg text-gray-600 mb-8 max-w-4xl">${t('spotlight_body')}</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+                <!-- Main Spotlight Feature -->
+                <div class="lg:col-span-2 bg-white p-8 rounded-xl shadow-xl border-l-4 border-green-500">
+                    <h2 class="text-3xl font-bold text-green-700 mb-3">${t_data(featuredSpotlight, 'title')}</h2>
+                    <p class="text-sm text-gray-500 mb-4">Posted: ${new Date(featuredSpotlight.posted_date.toMillis()).toLocaleDateString()}</p>
+                    <p class="text-gray-700 mb-6">${t_data(featuredSpotlight, 'story')}</p>
+                    <button onclick="navigateTo('/submit-content')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-full transition-colors shadow-md text-sm">${t('spotlight_cta_nominate')}</button>
+                </div>
+
+                <!-- Volunteer of the Month -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold text-indigo-700 mb-2">${t('volunteer_otm_headline')}</h2>
+                        <h3 class="text-xl font-semibold mb-3">${t_data(volunteerOfTheMonth, 'title')}</h3>
+                        <p class="text-gray-700">${t_data(volunteerOfTheMonth, 'story')}</p>
+                    </div>
+                    <button onclick="navigateTo('/volunteer')" class="mt-4 w-full bg-gray-100 hover:bg-gray-200 text-indigo-600 font-semibold py-2 rounded-full transition-colors">View All Volunteer Needs</button>
+                </div>
+            </div>
+
+            <!-- Sponsor Directory -->
+            <div class="mb-12">
+                <h2 class="text-3xl font-bold text-gray-800 mb-4">${t('sponsor_dir_headline')}</h2>
+                <p class="text-gray-600 mb-6 max-w-4xl">${t('sponsor_dir_body')}</p>
+                <!-- NOTE: Sponsor data (collection: sponsors) is not actively fetched here but the section is created -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <p class="text-center text-gray-500 italic">Sponsor logos/names would display here from the Firestore 'sponsors' collection.</p>
+                </div>
+            </div>
+
+            <!-- Local Business Directory -->
+            ${renderBusinessDirectory()}
+
+            <!-- Leadership Bio Section (Placeholder) -->
+            <div class="mt-12">
+                <h2 class="text-3xl font-bold text-gray-800 mb-4">BAF-M Leadership</h2>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <p class="text-gray-700">Leadership bios will be displayed here, fetched from the Firestore 'leadership' collection.</p>
+                </div>
+            </div>
+        `;
+    };
+
+    const renderBusinessDirectory = () => {
+        const directoryData = localBusinesses.length > 0 ? localBusinesses : getInitialBusinessData(); // Use initial data if Firestore is empty/loading
+
+        return `
+            <h2 class="text-3xl font-bold text-gray-800 mb-4">${t('business_dir_title')}</h2>
+            <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">${t('biz_col_name')}</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">${t('biz_col_category')}</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">${t('biz_col_location')}</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">${t('biz_col_details')}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${directoryData.map(biz => `
+                            <tr>
+                                <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${biz.name || biz.title_en}</td>
+                                <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${biz.category || biz.category_en}</td>
+                                <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${biz.address || biz.location}</td>
+                                <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${biz.details || biz.website || 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    };
+
+    const renderEvents = () => {
+        const upcoming = events.filter(e => e.event_datetime.toMillis() > Date.now());
+        const past = events.filter(e => e.event_datetime.toMillis() <= Date.now());
+
+        const eventToHtml = (event, isPast) => {
+            const date = new Date(event.event_datetime.toMillis()).toLocaleString(currentLang === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'full', timeStyle: 'short' });
+            return `
+                <div class="bg-white p-6 rounded-xl shadow-lg ${isPast ? 'opacity-70' : 'border-t-4 border-green-500'}">
+                    <h3 class="text-xl font-semibold mb-2 ${isPast ? 'text-gray-600' : 'text-green-700'}">${t_data(event, 'title')}</h3>
+                    <p class="text-sm text-gray-500 mb-1"><strong class="font-medium">${t('event_datetime')}:</strong> ${date}</p>
+                    <p class="text-sm text-gray-500 mb-3"><strong class="font-medium">${t('event_location')}:</strong> ${event.location || 'Online'}</p>
+                    <div class="text-gray-700 mt-2">${t_data(event, 'desc')}</div>
+                </div>
+            `;
+        };
+
+        return `
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-4">${t('events_issues_headline')}</h1>
+            <p class="text-lg text-gray-600 mb-8 max-w-4xl">${t('events_issues_body')}</p>
+
+            <!-- Upcoming Events -->
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('upcoming_events_title')}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                ${upcoming.length > 0 ? upcoming.map(e => eventToHtml(e, false)).join('') : `<p class="col-span-2 text-gray-500">${t('no_content_available')}</p>`}
+            </div>
+
+            <!-- Civic Summaries (Placeholder) -->
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('civic_summaries_title')}</h2>
+            <div class="bg-white p-6 rounded-xl shadow-lg mb-12 border-l-4 border-blue-500">
+                <p class="text-gray-700">${t('loading_data')}</p>
+                <p class="text-sm text-gray-500 mt-2">Data from the 'civic_issues' collection will appear here, showing simple summaries of local policy and engagement opportunities.</p>
+            </div>
+
+            <!-- Past Events Gallery -->
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('past_events_title')} (${past.length})</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                ${past.length > 0 ? past.map(e => eventToHtml(e, true)).join('') : `<p class="col-span-2 text-gray-500">${t('no_content_available')}</p>`}
+            </div>
+        `;
+    };
+
+    const renderVolunteer = () => {
+        const needsCards = volunteerNeeds.length > 0 ? volunteerNeeds.map(need => `
+            <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-yellow-500">
+                <h3 class="text-xl font-semibold mb-2 text-yellow-700">${t_data(need, 'title')}</h3>
+                <p class="text-gray-700 mb-4">${t_data(need, 'details')}</p>
+                <p class="text-sm text-gray-500 mb-2"><strong class="font-medium">${t('skills_req_label')}:</strong> ${need.skills_req || 'Any helpful skill'}</p>
+                <p class="text-sm text-gray-500 mb-4"><strong class="font-medium">${t('time_commitment')}:</strong> ${new Date(need.event_datetime.toMillis()).toLocaleDateString()} to ${new Date(need.end_datetime?.toMillis() || need.event_datetime.toMillis()).toLocaleDateString()}</p>
+                <button onclick="navigateTo('/submit-content'); setTimeout(() => document.getElementById('submission_type').value = '4. I Want To Volunteer', 100);"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-full transition-colors text-sm">
+                    ${t('cta_i_want_to_volunteer')}
+                </button>
+            </div>
+        `).join('') : `<p class="col-span-3 text-center text-gray-500">${t('no_content_available')}</p>`;
+
+        return `
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-4">${t('volunteer_headline')}</h1>
+            <p class="text-lg text-gray-600 mb-8 max-w-4xl">${t('volunteer_body')}</p>
+
+            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-12">
+                <button onclick="navigateTo('/submit-content'); setTimeout(() => document.getElementById('submission_type').value = '4. I Want To Volunteer', 100);"
+                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-colors shadow-lg flex-1">
+                    ${t('cta_i_want_to_volunteer')}
+                </button>
+                <button onclick="navigateTo('/submit-content'); setTimeout(() => document.getElementById('submission_type').value = '3. Volunteer Need (Post)', 100);"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors shadow-lg flex-1">
+                    ${t('cta_post_a_need')}
+                </button>
+            </div>
+
+            <!-- Open Volunteer Needs List -->
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('needs_list_title')}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                ${needsCards}
+            </div>
+
+            <!-- Skills Exchange/Mentorship Placeholder -->
+            <div class="mt-12">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Skills Exchange & Mentorship</h2>
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500">
+                    <p class="text-gray-700">Matching forms and lists for mentorship offers (Type 5) and requests (Type 6) are processed through the Submissions Hub.</p>
+                </div>
+            </div>
+        `;
+    };
+
+    const renderSubmissionHub = () => {
+        const submissionTypes = [
+            'type_event', 'type_issue', 'type_volunteer_post', 'type_volunteer_apply',
+            'type_mentor_offer', 'type_mentor_request', 'type_inquiry', 'type_spotlight'
+        ].map(key => ({
+            value: key.split('_').pop() === 'event' ? '1. Event Submission' : t(key),
+            label: t(key)
+        }));
+
+        const renderConditionalFields = () => {
+            const selectedType = document.getElementById('submission_type')?.value;
+            const fieldKeys = SUBMISSION_FIELDS[selectedType] || [];
+
+            const fieldMap = {
+                'content_title': { label: t('field_content_title'), type: 'text', required: true, note: 'Bilingual translation encouraged.' },
+                'content_body': { label: t('field_content_body'), type: 'textarea', required: true, minWords: 150, note: t('field_min_150') },
+                'date_time': { label: t('field_date_time'), type: 'text', required: true, placeholder: '2025-12-31 18:00' },
+                'location': { label: t('field_location'), type: 'text', required: true, placeholder: '123 Main St, Warren MI' },
+                'skills': { label: t('field_skills'), type: 'text', required: true, placeholder: 'e.g., event setup, finance, graphic design' },
+                'image_upload': { label: t('field_image_upload'), type: 'text', required: false, placeholder: 'Paste image or logo URL here' },
+                'why_help': { label: t('field_why_help'), type: 'textarea', required: false },
+                'expertise_area': { label: t('field_expertise_area'), type: 'text', required: true },
+                'goals_background': { label: t('field_goals_background'), type: 'textarea', required: true },
+                'area_of_need': { label: t('field_area_of_need'), type: 'text', required: true },
+            };
+
+            return fieldKeys.map(key => {
+                const field = fieldMap[key];
+                if (!field) return '';
+                const id = `field_${key}`;
+                const required = field.required ? 'required' : '';
+                const requiredStar = field.required ? '<span class="text-red-500">*</span>' : '';
+
+                if (field.type === 'textarea') {
+                    return `
+                        <div class="mb-4">
+                            <label for="${id}" class="block text-sm font-medium text-gray-700">${field.label} ${requiredStar}</label>
+                            <textarea id="${id}" name="${id}" rows="4" ${required} class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3">${field.note || ''}</textarea>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="mb-4">
+                            <label for="${id}" class="block text-sm font-medium text-gray-700">${field.label} ${requiredStar}</label>
+                            <input type="${field.type}" id="${id}" name="${id}" ${required} placeholder="${field.placeholder || ''}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3">
+                            ${field.note ? `<p class="mt-1 text-xs text-gray-500">${field.note}</p>` : ''}
+                        </div>
+                    `;
+                }
+            }).join('');
+        };
+
+        // Central Submission Handler
+        const handleSubmit = async (event) => {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const submissionType = formData.get('submission_type');
+            const contactName = formData.get('field_contact_name');
+            const contactEmail = formData.get('field_contact_email');
+
+            // Simple required field check (does not validate conditional fields perfectly, but catches universals)
+            if (!submissionType || !contactName || !contactEmail) {
+                // IMPORTANT: Replaced alert() with console error and visual cue
+                console.error(t('required_field_error'));
+                document.getElementById('submission-error-message').textContent = t('required_field_error');
+                document.getElementById('submission-error-message').classList.remove('hidden');
+                document.getElementById('submission-error-message').classList.remove('bg-green-100', 'text-green-700');
+                document.getElementById('submission-error-message').classList.add('bg-red-100', 'text-red-700');
+                setTimeout(() => document.getElementById('submission-error-message').classList.add('hidden'), 5000);
+                return;
+            }
+
+            // IMPORTANT: Clear previous errors
+            document.getElementById('submission-error-message').classList.add('hidden');
+            document.getElementById('submission-error-message').textContent = '';
+
+
+            const payload = {};
+            // Gather all fields that exist in the form
+            for (const [key, value] of formData.entries()) {
+                payload[key] = value;
+            }
+
+            // Remove universal fields from payload
+            delete payload.submission_type;
+            delete payload.field_contact_name;
+            delete payload.field_contact_email;
+
+            document.getElementById('submit-button').disabled = true;
+            document.getElementById('submit-button').textContent = 'Submitting...';
+
+            try {
+                // Save to the private raw_submissions collection
+                await addDoc(collection(db, getUserCollectionPath()), {
+                    submission_type: submissionType,
+                    contact_name: contactName,
+                    contact_email: contactEmail,
+                    user_id: userId,
+                    payload: JSON.stringify(payload), // Store dynamic data as JSON string
+                    status: 'pending',
+                    submitted_at: Timestamp.now(),
+                });
+                // IMPORTANT: Replaced alert() with console success and visual cue
+                document.getElementById('submission-error-message').textContent = t('submission_success');
+                document.getElementById('submission-error-message').classList.remove('hidden');
+                document.getElementById('submission-error-message').classList.remove('bg-red-100', 'text-red-700');
+                document.getElementById('submission-error-message').classList.add('bg-green-100', 'text-green-700');
+                
+                form.reset();
+                document.getElementById('conditional-fields-container').innerHTML = ''; // Clear fields
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                // IMPORTANT: Replaced alert() with console error and visual cue
+                document.getElementById('submission-error-message').textContent = t('submission_error');
+                document.getElementById('submission-error-message').classList.remove('hidden');
+                document.getElementById('submission-error-message').classList.remove('bg-green-100', 'text-green-700');
+                document.getElementById('submission-error-message').classList.add('bg-red-100', 'text-red-700');
+            } finally {
+                document.getElementById('submit-button').disabled = false;
+                document.getElementById('submit-button').textContent = t('submit_button');
             }
         };
 
-        let language = 'en';
-        let currentPage = 'home';
-        let mobileMenuOpen = false;
-        let showPlaceholderWarning = true;
-        let resourceSearchTerm = '';
+        // Attach event listener for dynamic field rendering
+        setTimeout(() => {
+            const typeDropdown = document.getElementById('submission_type');
+            const fieldsContainer = document.getElementById('conditional-fields-container');
+            const formElement = document.getElementById('submission-form');
 
-        const navItems = [
-            { key: 'home', labelKey: 'home' },
-            { key: 'about', labelKey: 'about' },
-            { key: 'events', labelKey: 'events' },
-            { key: 'directory', labelKey: 'directory' },
-            { key: 'resources', labelKey: 'resources' }, 
-            { key: 'contact', labelKey: 'title', group: 'contact' }, 
-            { key: 'action', labelKey: 'action' },
-        ];
-
-
-        // --- UTILITY FUNCTIONS ---
-
-        // Function to load Lucide Icons as SVG
-        function replaceIcons() {
-            lucide.createIcons();
-        }
-
-        function getCurrentTranslation() {
-            return translations[language];
-        }
-        
-        // Handles state change for the current page
-        function setCurrentPage(page) {
-            currentPage = page;
-            if (mobileMenuOpen) {
-                toggleMobileMenu();
+            if (typeDropdown && fieldsContainer) {
+                const updateFields = () => {
+                    fieldsContainer.innerHTML = renderConditionalFields();
+                };
+                typeDropdown.addEventListener('change', updateFields);
+                updateFields(); // Initial call to render default state or pre-selected value
             }
-            updateUI();
-        }
-
-        // Toggles language state and re-renders
-        function toggleLanguage() {
-            language = language === 'en' ? 'bn' : 'en';
-            updateUI();
-        }
-
-        // Toggles mobile menu visibility
-        function toggleMobileMenu() {
-            mobileMenuOpen = !mobileMenuOpen;
-            const menu = document.getElementById('mobile-menu');
-            menu.classList.toggle('hidden', !mobileMenuOpen);
-            // Re-render nav items inside the menu
-            renderNavigation(); 
-        }
-
-        // Handles search input on the resources page
-        function handleResourceSearch(event) {
-            resourceSearchTerm = event.target.value;
-            // Only re-render the main content if we are on the resources page
-            if (currentPage === 'resources') {
-                 document.getElementById('main-content').innerHTML = renderResourcesPage();
-                 replaceIcons(); // Re-inject icons after content update
+            if (formElement) {
+                formElement.onsubmit = handleSubmit;
             }
-        }
+        }, 0); // Delay execution to ensure DOM is rendered
 
-        // --- RENDER FUNCTIONS (Generate HTML Strings) ---
+        return `
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-4">${t('submit_hub_headline')}</h1>
+            <p class="text-lg text-gray-600 mb-8 max-w-4xl">${t('submit_hub_body')}</p>
 
-        function renderNavigation() {
-            const t = getCurrentTranslation();
-            const desktopNav = document.getElementById('desktop-nav');
-            const mobileNav = document.getElementById('mobile-nav');
-            const langSwitcherText = document.getElementById('lang-switcher-text');
+            <div class="bg-white p-6 md:p-10 rounded-xl shadow-2xl border-t-4 border-indigo-600 max-w-3xl mx-auto">
+                <div id="submission-error-message" class="hidden p-3 mb-4 rounded-lg font-medium text-center transition-all bg-red-100 text-red-700" role="alert"></div>
 
-            langSwitcherText.textContent = language === 'en' ? 'BN' : 'EN';
-            
-            let desktopHtml = '';
-            let mobileHtml = '';
+                <form id="submission-form">
+                    <!-- Universal Fields -->
+                    <div class="mb-6">
+                        <label for="submission_type" class="block text-lg font-bold text-indigo-700 mb-2">${t('field_submission_type')}<span class="text-red-500">*</span></label>
+                        <select id="submission_type" name="submission_type" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 bg-gray-50 text-base">
+                            <option value="" disabled selected>--- Select Submission Type ---</option>
+                            ${submissionTypes.map(type => `<option value="${type.value}">${type.label}</option>`).join('')}
+                        </select>
+                    </div>
 
-            navItems.forEach(item => {
-                const label = item.group === 'contact' ? t.contact[item.labelKey] : t.nav[item.labelKey];
-                const activeClass = currentPage === item.key ? 'text-indigo-600 border-b-2 border-indigo-600 pb-1' : '';
-                const activeClassMobile = currentPage === item.key ? 'text-indigo-400 font-bold' : '';
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4 border-b pb-2">Contact Info</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="mb-4">
+                            <label for="field_contact_name" class="block text-sm font-medium text-gray-700">${t('field_contact_name')}<span class="text-red-500">*</span></label>
+                            <input type="text" id="field_contact_name" name="field_contact_name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3">
+                        </div>
+                        <div class="mb-4">
+                            <label for="field_contact_email" class="block text-sm font-medium text-gray-700">${t('field_contact_email')}<span class="text-red-500">*</span></label>
+                            <input type="email" id="field_contact_email" name="field_contact_email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3">
+                        </div>
+                    </div>
 
-                desktopHtml += `
-                    <button
-                        onclick="setCurrentPage('${item.key}')"
-                        class="text-gray-600 hover:text-indigo-600 font-medium transition duration-150 text-base whitespace-nowrap ${activeClass}"
-                    >
-                        ${label}
+                    <!-- Conditional Fields (Renders based on Submission Type selection) -->
+                    <div id="conditional-fields-container" class="mt-8">
+                        <p class="text-center text-gray-500 italic">Select a Submission Type above to reveal the necessary fields.</p>
+                    </div>
+
+                    <button type="submit" id="submit-button" class="mt-8 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg text-lg">
+                        ${t('submit_button')}
                     </button>
-                `;
-                 mobileHtml += `
-                    <button
-                        onclick="setCurrentPage('${item.key}')"
-                        class="text-white hover:text-indigo-400 transition ${activeClassMobile}"
-                    >
-                        ${label}
-                    </button>
-                `;
-            });
+                </form>
+            </div>
+        `;
+    };
 
-            desktopNav.innerHTML = desktopHtml;
-            mobileNav.innerHTML = mobileHtml;
+    const renderApp = () => {
+        if (!isAuthReady) {
+            document.getElementById('loading-message').textContent = t('loading_data');
+            return;
         }
 
-        function renderHomePage() {
-            const t = getCurrentTranslation();
-            const heroImageUrl = "image_2e65c5.jpg";
-            
-            return `
-                <div class="space-y-16">
-                    <!-- Hero Section -->
-                    <header 
-                        id="hero-section"
-                        class="text-white py-24 md:py-32 rounded-xl shadow-2xl relative overflow-hidden bg-cover bg-center mx-4" 
-                        style="background-image: url(${heroImageUrl})"
-                    >
-                        <!-- Overlay for text readability -->
-                        <div class="absolute inset-0 bg-gray-900 opacity-70"></div> 
-                        
-                        <div class="max-w-screen-2xl mx-auto px-4 relative z-10 text-center">
-                            <h1 class="text-4xl md:text-6xl font-extrabold mb-4 leading-tight">${t.hero.title}</h1>
-                            <p class="text-xl md:text-2xl mb-8 font-light text-indigo-200">${t.hero.subtitle}</p>
-                            <button onclick="setCurrentPage('action')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full transition duration-300 transform hover:scale-105 shadow-lg">
-                                ${t.hero.button}
-                            </button>
-                        </div>
-                    </header>
+        renderHeader();
+        const container = document.getElementById('content-container');
+        let contentHtml = '';
 
-                    <!-- About Section -->
-                    <section class="max-w-screen-2xl mx-auto px-4 py-8">
-                        <h2 class="text-3xl font-bold text-center mb-10 text-gray-800">${t.about.title}</h2>
-                        <div class="grid md:grid-cols-2 gap-8 items-center bg-white p-8 rounded-xl shadow-lg">
-                            <div class="space-y-4">
-                                <p class="text-gray-600 leading-relaxed">${t.about.content1}</p>
-                                <p class="text-gray-600 leading-relaxed">${t.about.content2}</p>
-                            </div>
-                            <div class="hidden md:block">
-                                <svg data-icon="Users" class="w-24 h-24 text-indigo-500 mx-auto"></svg>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Events Preview Section -->
-                    <section class="max-w-screen-2xl mx-auto px-4 py-8">
-                        <h2 class="text-3xl font-bold text-center mb-10 text-gray-800">${t.events.title}</h2>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                            ${events.slice(0, 3).map(event => `
-                                <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-indigo-500 hover:shadow-xl transition duration-300">
-                                    <div class="flex items-center mb-3">
-                                        <svg data-icon="Calendar" class="w-5 h-5 text-indigo-600 mr-3"></svg>
-                                        <p class="text-sm font-medium text-gray-500">${new Date(event.date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                                    </div>
-                                    <h3 class="text-xl font-semibold mb-2 text-gray-700">${language === 'en' ? event.title_en : event.title_bn}</h3>
-                                    <div class="flex items-center mb-4 text-sm text-gray-500">
-                                        <svg data-icon="MapPin" class="w-4 h-4 mr-2"></svg>
-                                        <span>${event.location}</span>
-                                    </div>
-                                    <p class="text-gray-600 text-sm">${language === 'en' ? event.description_en : event.description_bn}</p>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <div class="text-center mt-10">
-                            <button onclick="setCurrentPage('events')" class="inline-flex items-center text-indigo-600 font-semibold hover:text-indigo-800 transition">
-                                ${t.events.view_all}
-                                <svg data-icon="ChevronRight" class="w-4 h-4 ml-1"></svg>
-                            </button>
-                        </div>
-                    </section>
-
-                    <!-- Call to Action Section -->
-                    <section class="bg-indigo-50 py-16 rounded-xl">
-                        <div class="max-w-screen-2xl mx-auto px-4 text-center">
-                            <h2 class="text-3xl font-bold mb-4 text-indigo-800">${t.action.title}</h2>
-                            <p class="text-xl text-indigo-600 mb-8">
-                                ${language === 'en' ? 'Your support makes a difference in our community.' : 'আপনার সমর্থন আমাদের কমিউনিটিতে পরিবর্তন আনে।'}
-                            </p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                                <div class="bg-white p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition duration-300 border-b-4 border-indigo-300">
-                                    <svg data-icon="BookOpen" class="w-10 h-10 text-indigo-500 mx-auto mb-4"></svg>
-                                    <h3 class="text-xl font-semibold mb-2">${t.action.membership}</h3>
-                                    <p class="text-gray-600 text-sm">${t.action.membership_desc}</p>
-                                </div>
-                                <div class="bg-white p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition duration-300 border-b-4 border-indigo-300">
-                                    <svg data-icon="Users" class="w-10 h-10 text-indigo-500 mx-auto mb-4"></svg>
-                                    <h3 class="text-xl font-semibold mb-2">${t.action.volunteer}</h3>
-                                    <p class="text-gray-600 text-sm">${t.action.volunteer_desc}</p>
-                                </div>
-                                <div class="bg-white p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition duration-300 border-b-4 border-indigo-300">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.94V3a3 3 0 0 0-3-3m0 3a3 3 0 0 0 3 3m0-3h3a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h3a3 3 0 0 1 0 6H9m0 6v-3a3 3 0 0 0-3-3m3 3a3 3 0 0 0-3-3m0 3h-3a3 3 0 0 1 0-6h3a3 3 0 0 0 0-6h-3a3 3 0 0 1 0-6H9m0 6V3a3 3 0 0 0 3-3m0 3a3 3 0 0 0-3 3"/></svg>
-                                    <h3 class="text-xl font-semibold mb-2">${t.action.donate}</h3>
-                                    <p class="text-gray-600 text-sm">${t.action.donate_desc}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-            `;
+        switch (currentPage) {
+            case 'home':
+                contentHtml = renderHome();
+                break;
+            case 'spotlight':
+                contentHtml = renderSpotlight();
+                break;
+            case 'events':
+                contentHtml = renderEvents();
+                break;
+            case 'volunteer':
+                contentHtml = renderVolunteer();
+                break;
+            case 'submit':
+                contentHtml = renderSubmissionHub();
+                break;
+            default:
+                currentPage = 'home';
+                contentHtml = renderHome();
+                break;
         }
 
-        function renderEventsPage() {
-            const t = getCurrentTranslation();
-            return `
-                <div class="max-w-screen-2xl mx-auto px-4 py-8">
-                    <h2 class="text-4xl font-bold mb-10 text-gray-800 text-center">${t.events.title}</h2>
-                    <div class="space-y-6">
-                        ${events.map(event => `
-                            <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500 flex flex-col md:flex-row justify-between items-start md:items-center hover:shadow-xl transition duration-300">
-                                <div class="flex-1 mb-4 md:mb-0">
-                                    <h3 class="text-2xl font-semibold mb-1 text-gray-700">${language === 'en' ? event.title_en : event.title_bn}</h3>
-                                    <p class="text-gray-600 text-sm mb-3">${language === 'en' ? event.description_en : event.description_bn}</p>
-                                    <div class="flex items-center text-sm text-gray-500">
-                                        <svg data-icon="MapPin" class="w-4 h-4 mr-2"></svg>
-                                        <span>${event.location}</span>
-                                    </div>
-                                </div>
-                                <div class="md:text-right">
-                                    <div class="flex items-center justify-start md:justify-end text-sm font-medium text-indigo-600 mb-1">
-                                        <svg data-icon="Calendar" class="w-4 h-4 mr-2"></svg>
-                                        ${t.events.date}: ${new Date(event.date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })}
-                                    </div>
-                                    <button class="bg-indigo-500 text-white text-sm py-2 px-4 rounded-full hover:bg-indigo-600 transition">
-                                        ${t.events.register}
-                                    </button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <p class="text-center text-gray-500 mt-10 text-lg">
-                        ${t.events.more_soon}
-                    </p>
-                </div>
-            `;
-        }
+        document.getElementById('content-container').innerHTML = `<div class="max-w-7xl mx-auto">${contentHtml}</div>`;
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+    };
 
-        function renderDirectoryPage() {
-            const t = getCurrentTranslation();
-            return `
-                <div class="max-w-screen-2xl mx-auto px-4 py-8">
-                    <h2 class="text-4xl font-bold mb-10 text-gray-800 text-center">${t.directory.title}</h2>
-
-                    <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto max-w-full md:max-w-3xl mx-auto">
-                        <!-- CRITICAL FIX: overflow-x-auto for table on mobile -->
-                        <table class="min-w-full divide-y divide-gray-200"> 
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
-                                        ${t.directory.role}
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[250px]">
-                                        ${t.directory.status}
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                ${directoryMembers.map(member => `
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-6 py-4 whitespace-nowrap text-base font-semibold text-gray-900">
-                                            ${language === 'en' ? member.role_en : member.role_bn}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-normal text-sm text-gray-500">
-                                            ${language === 'en' ? member.contact_en : member.contact_bn}
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                        <p class="text-center text-gray-500 mt-6 text-sm italic flex items-center justify-center">
-                            <svg data-icon="FileText" class="w-4 h-4 mr-2"></svg>
-                            ${t.directory.note}
-                        </p>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderResourcesPage() {
-            const t = getCurrentTranslation();
-
-            const filteredResources = communityResources.filter(resource => {
-                if (!resourceSearchTerm) return true;
-                const term = resourceSearchTerm.toLowerCase();
-                return (
-                    resource.name.toLowerCase().includes(term) ||
-                    resource.sector.toLowerCase().includes(term) ||
-                    resource.address.toLowerCase().includes(term) ||
-                    resource.details.toLowerCase().includes(term)
-                );
-            });
-
-            return `
-                <div class="max-w-screen-2xl mx-auto px-4 py-8">
-                    <h2 class="text-4xl font-bold mb-3 text-gray-800 text-center">${t.resources.title}</h2>
-                    <p class="text-xl text-center text-gray-600 mb-8">${t.resources.subtitle}</p>
-
-                    <!-- Search Bar -->
-                    <form onsubmit="event.preventDefault()" class="max-w-3xl mx-auto mb-8 relative">
-                        <svg data-icon="Search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"></svg>
-                        <input
-                            type="text"
-                            placeholder="${t.resources.search_placeholder}"
-                            class="w-full p-3 pl-10 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-                            value="${resourceSearchTerm}"
-                            oninput="handleResourceSearch(event)"
-                        />
-                    </form>
-
-                    <!-- Resource List -->
-                    <div class="space-y-4">
-                        ${filteredResources.length > 0 ? (
-                            filteredResources.map((resource, index) => `
-                                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500 hover:shadow-xl transition duration-300">
-                                    <h3 class="text-xl font-semibold mb-2 text-gray-800">${resource.name}</h3>
-                                    
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-gray-600 mb-3"> 
-                                        <div class="flex items-center">
-                                            <svg data-icon="BookOpen" class="w-4 h-4 mr-2 text-indigo-500"></svg>
-                                            <span class="font-medium">${t.resources.sector}:</span> ${resource.sector}
-                                        </div>
-                                        <div class="flex items-start">
-                                            <svg data-icon="MapPin" class="w-4 h-4 mr-2 mt-0.5 text-indigo-500 flex-shrink-0"></svg>
-                                            <span class="font-medium">${t.resources.location}:</span> ${resource.address}
-                                        </div>
-                                    </div>
-
-                                    <p class="text-sm text-gray-700 border-t pt-3 mt-3">
-                                        <span class="font-medium">${t.resources.details}:</span> ${resource.details}
-                                    </p>
-                                </div>
-                            `).join('')
-                        ) : `
-                            <p class="text-center text-gray-500 p-8 bg-white rounded-xl shadow-lg">
-                                ${t.resources.no_match}
-                            </p>
-                        `}
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderContactPage() {
-            const t = getCurrentTranslation();
-
-            const renderContactDetail = (iconName, label, value) => `
-                <div class="flex items-start space-x-4">
-                    <svg data-icon="${iconName}" class='w-6 h-6 text-indigo-500 mt-1 flex-shrink-0'></svg>
-                    <div>
-                        <p class="font-semibold text-gray-700">${label}</p>
-                        <span class="text-gray-600 text-sm italic">${value}</span>
-                    </div>
-                </div>
-            `;
-
-            return `
-                <div class="max-w-screen-2xl mx-auto px-4 py-8">
-                    <h2 class="text-4xl font-bold mb-10 text-gray-800 text-center">${t.contact.title}</h2>
-                    <div class="max-w-xl mx-auto bg-white p-8 rounded-xl shadow-2xl space-y-6">
-
-                        <!-- TEMPORARY DATA NOTE -->
-                        ${showPlaceholderWarning ? `
-                            <div id="warning-alert" class="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-lg flex items-start space-x-2">
-                                <svg data-icon="AlertCircle" class="w-6 h-6 flex-shrink-0 mt-0.5"></svg>
-                                <div class="text-sm">${t.contact.warning}</div>
-                                <button onclick="hidePlaceholderWarning()" class="text-yellow-500 hover:text-yellow-800 font-bold ml-auto flex-shrink-0">
-                                    <svg data-icon="X" class="w-4 h-4"></svg>
-                                </button>
-                            </div>
-                        ` : ''}
-
-                        ${renderContactDetail('MapPin', t.contact.address_label, t.contact.address)}
-                        ${renderContactDetail('Phone', t.contact.phone_label, t.contact.phone)}
-                        ${renderContactDetail('Mail', t.contact.email_label, t.contact.email)}
-
-                        <form class="mt-8 pt-6 border-t border-gray-200 space-y-4" onsubmit="event.preventDefault(); alert('Message sent! (Mock Submission)');">
-                            <h3 class="text-xl font-semibold">${t.contact.message}</h3>
-                            <input type="text" placeholder="${t.contact.name_placeholder}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
-                            <input type="email" placeholder="${t.contact.email_placeholder}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
-                            <textarea placeholder="${t.contact.msg_placeholder}" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"></textarea>
-                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition duration-300">
-                                ${t.contact.send}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function hidePlaceholderWarning() {
-            showPlaceholderWarning = false;
-            // Directly remove the element without a full re-render for performance
-            const warningElement = document.getElementById('warning-alert');
-            if (warningElement) {
-                warningElement.remove();
-            }
-        }
-        
-        function renderAboutPage() {
-            const t = getCurrentTranslation();
-            return `
-                <div class="max-w-screen-2xl mx-auto px-4 py-16">
-                    <h2 class="text-4xl font-bold mb-8 text-center text-gray-800">${t.nav.about}</h2>
-                    <div class="max-w-3xl mx-auto space-y-6 text-lg text-gray-700 bg-white p-8 rounded-xl shadow-lg">
-                        <p>
-                            ${t.about.full_text_1}
-                        </p>
-                        <p>
-                            ${t.about.full_text_2}
-                        </p>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderActionPage() {
-            const t = getCurrentTranslation();
-            return `
-                <div class="max-w-screen-2xl mx-auto px-4 py-16">
-                    <h2 class="text-4xl font-bold mb-8 text-center text-gray-800">${t.nav.action}</h2>
-                    <div class="max-w-3xl mx-auto space-y-6 text-lg text-gray-700">
-                        <p class="text-center font-semibold text-indigo-700 mb-6">
-                            ${language === 'en' ? "We rely on the passion and dedication of our members to power BAF's mission. Get involved today!" : "BAF-এর মিশনকে শক্তিশালী করতে আমরা আমাদের সদস্যদের আবেগ এবং নিবেদনের উপর নির্ভর করি। আজই যুক্ত হন!"}
-                        </p>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"> 
-                            <div class="bg-white p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition duration-300 border-b-4 border-indigo-500">
-                                <svg data-icon="BookOpen" class="w-10 h-10 text-indigo-500 mx-auto mb-4"></svg>
-                                <h3 class="text-xl font-semibold mb-2">${t.action.membership}</h3>
-                                <p class="text-gray-600 text-sm">${t.action.membership_desc}</p>
-                                <button class="mt-4 w-full bg-indigo-50 text-indigo-600 font-medium py-2 rounded-lg text-sm hover:bg-indigo-100 transition">
-                                    ${t.action.apply}
-                                </button>
-                            </div>
-                            <div class="bg-white p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition duration-300 border-b-4 border-indigo-500">
-                                <svg data-icon="Users" class="w-10 h-10 text-indigo-500 mx-auto mb-4"></svg>
-                                <h3 class="text-xl font-semibold mb-2">${t.action.volunteer}</h3>
-                                <p class="text-gray-600 text-sm">${t.action.volunteer_desc}</p>
-                                <button class="mt-4 w-full bg-indigo-50 text-indigo-600 font-medium py-2 rounded-lg text-sm hover:bg-indigo-100 transition">
-                                    ${t.action.signup}
-                                </button>
-                            </div>
-                            <div class="bg-white p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition duration-300 border-b-4 border-indigo-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-indigo-500 mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.94V3a3 3 0 0 0-3-3m0 3a3 3 0 0 0 3 3m0-3h3a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h3a3 3 0 0 1 0 6H9m0 6v-3a3 3 0 0 0-3-3m3 3a3 3 0 0 0-3-3m0 3h-3a3 3 0 0 1 0-6h3a3 3 0 0 0 0-6h-3a3 3 0 0 1 0-6H9m0 6V3a3 3 0 0 0 3-3m0 3a3 3 0 0 0-3 3"/></svg>
-                                <h3 class="text-xl font-semibold mb-2">${t.action.donate}</h3>
-                                <p class="text-gray-600 text-sm">${t.action.donate_desc}</p>
-                                <button class="mt-4 w-full bg-indigo-50 text-indigo-600 font-medium py-2 rounded-lg text-sm hover:bg-indigo-100 transition">
-                                    ${t.action.give}
-                                </button>
-                            </div>
-                        </div>
-                        <p class="text-sm italic text-center text-gray-500 pt-6">
-                            ${t.action.support_tag}
-                        </p>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderFooter() {
-            const t = getCurrentTranslation();
-            const footerElement = document.getElementById('footer');
-            
-            let navLinksHtml = navItems.map(item => {
-                const label = item.group === 'contact' ? t.contact[item.labelKey] : t.nav[item.labelKey];
-                return `
-                    <button
-                        onclick="setCurrentPage('${item.key}')"
-                        class="block text-gray-300 hover:text-white transition text-left text-sm"
-                    >
-                        ${label}
-                    </button>
-                `;
-            }).join('');
-
-            footerElement.innerHTML = `
-                <!-- CRITICAL FIX: Using max-w-screen-2xl mx-auto for responsive fluid centering -->
-                <div class="max-w-screen-2xl mx-auto px-4 py-8 sm:py-12">
-                    <!-- Force grid to stack on smallest devices (grid-cols-1), expanding at sm -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 border-b border-gray-700 pb-8">
-                        <div class="col-span-1 sm:col-span-2 md:col-span-1">
-                            <h3 class="text-lg font-bold mb-4">BAF</h3>
-                            <p class="text-gray-300 text-sm">${t.hero.subtitle}</p>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-bold mb-4">${t.footer.links}</h3>
-                            <div class="space-y-2">
-                                ${navLinksHtml}
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-bold mb-4">${t.contact.title}</h3>
-                            <div class="space-y-2 text-gray-300 text-sm">
-                                <p class="flex items-start">
-                                    <svg data-icon="MapPin" class="w-4 h-4 mr-2 mt-1 flex-shrink-0"></svg>
-                                    <span class="italic">${t.contact.address}</span>
-                                </p>
-                                <p class="flex items-center">
-                                    <svg data-icon="Phone" class="w-4 h-4 mr-2"></svg>
-                                    <span class="italic">${t.contact.phone}</span>
-                                </p>
-                                <p class="flex items-center">
-                                    <svg data-icon="Mail" class="w-4 h-4 mr-2"></svg>
-                                    <span class="italic">${t.contact.email}</span>
-                                </p>
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-bold mb-4">${t.footer.legal}</h3>
-                            <div class="space-y-2 text-gray-300 text-sm">
-                                <p>${language === 'en' ? 'Privacy Policy' : 'গোপনীয়তা নীতি'}</p>
-                                <p>${language === 'en' ? 'Terms of Service' : 'সেবার শর্তাবলী'}</p>
-                                <p>${language === 'en' ? 'Community Guidelines' : 'কমিউনিটি নির্দেশিকা'}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="border-t border-gray-700 pt-8 text-center text-gray-400 text-sm">
-                        <p>© 2025 Bangladeshi American Forum (BAF) of Michigan. ${language === 'en' ? 'All rights reserved.' : 'সর্বস্বত্ব সংরক্ষিত।'}</p>
-                    </div>
-                </div>
-            `;
-        }
-
-        // --- MAIN RENDER LOOP ---
-
-        function updateUI() {
-            renderNavigation();
-            renderFooter();
-
-            const mainContent = document.getElementById('main-content');
-            
-            let contentHtml;
-            switch (currentPage) {
-                case 'about':
-                    contentHtml = renderAboutPage();
-                    break;
-                case 'events':
-                    contentHtml = renderEventsPage();
-                    break;
-                case 'directory':
-                    contentHtml = renderDirectoryPage();
-                    break;
-                case 'resources':
-                    contentHtml = renderResourcesPage();
-                    break;
-                case 'action':
-                    contentHtml = renderActionPage();
-                    break;
-                case 'contact':
-                    contentHtml = renderContactPage();
-                    break;
-                case 'home':
-                default:
-                    contentHtml = renderHomePage();
-                    break;
-            }
-            mainContent.innerHTML = contentHtml;
-            replaceIcons(); // Ensure all newly rendered icons are processed
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        // Initial setup on body load
-        function init() {
-            updateUI();
-            replaceIcons(); 
-        }
-
-    </script>
+    // --- INITIAL DATA SEEDING (For Local Business Directory) ---
+    // If Firestore is empty, this provides the initial data set
+    const getInitialBusinessData = () => [
+        { name: 'Amar Pizza', category_en: 'Restaurant/Food', category_bn: 'রেস্টুরেন্ট/খাবার', location: '12195 Joseph Campau, Hamtramck', website: 'N/A' },
+        { name: 'Zamzam Restaurant', category_en: 'Restaurant/Food', category_bn: 'রেস্টুরেন্ট/খাবার', location: '11917 Conant St., Hamtramck', website: 'N/A' },
+        { name: 'Bonoful Sweets & Cafe', category_en: 'Sweets/Café/Restaurant', category_bn: 'মিষ্টি/ক্যাফে/রেস্টুরেন্ট', location: '12085 Conant Ave., Hamtramck', website: 'N/A' },
+        { name: 'Al Amin Super Market', category_en: 'Grocery/Halal Retail', category_bn: 'মুদি/হালাল রিটেইল', location: '11920 Conant St., Hamtramck', website: 'N/A' },
+        { name: 'Hera Fish Market / Hera Food Mart', category_en: 'Grocery/Imported Fish', category_bn: 'মুদি/আমদানিকৃত মাছ', location: '30-11 Holbrook Street, Hamtramck, MI 48212', website: 'N/A' },
+        { name: 'Nina Fashion & Fabrics', category_en: 'Clothing/Fashion Retail', category_bn: 'পোশাক/ফ্যাশন রিটেইল', location: '11627 Conant St., Hamtramck', website: 'N/A' },
+        { name: 'Real Estate Advantage', category_en: 'Real Estate', category_bn: 'রিয়েল এস্টেট', location: '3100 Caniff Ave., Hamtramck, MI 48212', website: 'N/A' },
+        { name: 'Bangla Remodeling', category_en: 'Construction/Trades', category_bn: 'নির্মাণ/ট্রেড', location: 'Hamtramck-based', website: 'N/A' },
+        { name: 'Bangladeshi American Comm. Svcs. Inc. (BACSI)', category_en: 'Social Services/Non-Profit', category_bn: 'সামাজিক সেবা/অলাভজনক', location: '12818 Joseph Campau, Hamtramck', website: 'N/A' },
+        { name: 'Adda Music Cafe and Restaurant', category_en: 'Restaurant/Food/Cafe', category_bn: 'রেস্টুরেন্ট/খাবার/ক্যাফে', location: 'Warren, MI', website: 'N/A' },
+        { name: 'Hera Food Mart (Warren location)', category_en: 'Grocery/Halal Retail', category_bn: 'মুদি/হালাল রিটেইল', location: '28756 Ryan Rd., Warren, MI 48092', website: 'N/A' },
+        { name: 'Bangladesh Association of Michigan (BAM)', category_en: 'Community Association/Non-Profit', category_bn: 'কমিউনিটি অ্যাসোসিয়েশন/অলাভজনক', location: '24163 Joanne Ave, Warren, MI 48091', website: 'N/A' },
+        { name: 'mQrg, LLC (Charlevoix Facility)', category_en: 'Auto Repair/Industrial Service', category_bn: 'গাড়ি মেরামত/শিল্প পরিষেবা', location: '12141 Charlevoix St., Detroit, MI 48215', website: 'N/A' },
+        { name: 'mQrg, LLC (Flat Rock Facility)', category_en: 'Auto Repair/Industrial Service', category_bn: 'গাড়ি মেরামত/শিল্প পরিষেবা', location: '29500 Gateway Drive, Flat Rock, MI 48134', website: 'N/A' },
+        { name: 'Sonali Exchange Co. Inc.', category_en: 'Money Transfer / Finance', category_bn: 'অর্থ স্থানান্তর / অর্থায়ন', location: 'Licensed in Michigan (NY HQ)', website: 'N/A' },
+        { name: 'Noor Chowdhury (Realtor)', category_en: 'Real Estate Agent', category_bn: 'রিয়েল এস্টেট এজেন্ট', location: '36250 Dequindre Rd. Ste. 100, Sterling Heights, MI 48310', website: 'N/A' },
+        { name: 'Zafreen\'s Kitchen', category_en: 'Catering', category_bn: 'ক্যাটারিং', location: 'Metro Detroit (Home-based/Catering)', website: 'N/A' },
+        { name: 'Armario Collection', category_en: 'Niche Retail/Clothing', category_bn: 'নিশ রিটেইল/পোশাক', location: 'Metro Detroit (Home-based)', website: 'N/A' },
+    ];
+    // --- START APPLICATION ---
+    window.onload = initializeAppAndAuth;
+</script>
 </body>
 </html>
