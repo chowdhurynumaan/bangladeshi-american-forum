@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test</title>
+</head>
+<body>
+    <h1>TEST PAGE</h1>
+    <div id="status">Checking...</div>
+    
+    <script type="module">
+        console.log("Script started");
+        document.getElementById('status').textContent = "Script is running!";
+        
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
+        
+        console.log("Firebase imports loaded");
+        document.getElementById('status').textContent = "Firebase imports loaded!";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDtTKvYJjUYIvzcqOEXDwq3meVh2wHz3Qk",
+            authDomain: "bangladeshiamericanforum.firebaseapp.com",
+            projectId: "bangladeshiamericanforum",
+            storageBucket: "bangladeshiamericanforum.firebasestorage.app",
+            messagingSenderId: "362506019102",
+            appId: "1:362506019102:web:9b7842d64d99deda6ba90f"
+        };
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            console.log("Firebase initialized");
+            document.getElementById('status').textContent = "Firebase initialized!";
+            
+            const auth = getAuth(app);
+            await signInAnonymously(auth);
+            console.log("Auth successful");
+            document.getElementById('status').textContent = "Authentication successful! User ID: " + auth.currentUser.uid;
+        } catch (error) {
+            console.error("Error:", error);
+            document.getElementById('status').textContent = "Error: " + error.message;
+        }
+    </script>
+</body>
+</html>

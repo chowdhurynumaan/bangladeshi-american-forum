@@ -4,6 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BAF-M Digital Strategy Portal</title>
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#38a169">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQkFGLU0gQ29tbXVuaXR5Iiwic2hvcnRfbmFtZSI6IkJBRi1NIiwic3RhcnRfdXJsIjoiLyIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiNmN2Y5ZmIiLCJ0aGVtZV9jb2xvciI6IiMzOGExNjkiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCM2FXUjBhRDBpTWpBd0lpQm9aV2xuYUhROUlqSXdNQ0lnZG1sbGQwSnZlRDBpTUNBd0lESXdNQ0F5TURBaUlHWnBiR3c5SWlNek9HRXhOamtpSUhodGJHNXpQU0pvZEhSd09pOHZkM2QzTG5jekxtOXlaeTh5TURBd0wzTjJaeUkrUEhKbFkzUWdlRDBpTXpBaUlIazlJak13SWlCM2FXUjBhRDBpTVRRd0lpQm9aV2xuYUhROUlqRTBNQ0lnY25nOUlqRXdJaTgrUEM5eVpXTjBQanh3WVhSb0lHUTlJazB4TURBZ05UQklNVEF3SWlCemRISnZhMlU5SWlNM1pqZGtabUFpSUhOMGNtOXJaUzEzYVdSMGFEMGlNeUl2UGp3dmMzWm5QZz09Iiwic2l6ZXMiOiIyMDB4MjAwIiwidHlwZSI6ImltYWdlL3N2Zyt4bWwifV19">
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Bangladeshi American Forum - Michigan. Your reliable source for local news, events, and essential community resources across Warren, Sterling Heights, and Metro Detroit.">
+    <meta name="keywords" content="Bangladeshi, American, Forum, Michigan, Warren, Sterling Heights, Metro Detroit, Community, Events">
+    <meta property="og:title" content="BAF-M Digital Strategy Portal">
+    <meta property="og:description" content="Connecting the Bangladeshi Community in Michigan">
+    <meta property="og:type" content="website">
+    
+    <!-- Google Analytics (Replace GA_MEASUREMENT_ID with your actual ID) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'GA_MEASUREMENT_ID');
+    </script>
+    
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Use Inter font family -->
@@ -125,6 +146,60 @@
                 transform: translateY(0);
             }
         }
+        
+        /* Dark Mode Support */
+        @media (prefers-color-scheme: dark) {
+            body.dark-mode {
+                background-color: #1a202c;
+                color: #e2e8f0;
+            }
+            body.dark-mode .bg-white {
+                background-color: #2d3748 !important;
+                color: #e2e8f0 !important;
+            }
+            body.dark-mode .text-gray-800 {
+                color: #e2e8f0 !important;
+            }
+            body.dark-mode .text-gray-700 {
+                color: #cbd5e0 !important;
+            }
+        }
+        
+        /* Print Styles */
+        @media print {
+            header, footer, .no-print { display: none !important; }
+            body { background: white; color: black; }
+            .bg-white { box-shadow: none !important; }
+        }
+        
+        /* Favorite/Bookmark Star */
+        .favorite-btn {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .favorite-btn:hover {
+            transform: scale(1.2);
+        }
+        .favorite-btn.active {
+            color: #fbbf24;
+            fill: #fbbf24;
+        }
+        
+        /* Search Highlight */
+        .search-highlight {
+            background-color: #fef3c7;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        /* Image lazy loading blur effect */
+        img.lazy {
+            filter: blur(10px);
+            transition: filter 0.3s;
+        }
+        img.lazy.loaded {
+            filter: blur(0);
+        }
     </style>
 </head>
 <body>
@@ -139,16 +214,27 @@
     <main id="content-container" class="flex-grow p-4 md:p-8">
         <!-- Page content will be dynamically rendered here -->
         <div class="max-w-7xl mx-auto">
-            <p id="loading-message" class="text-center text-gray-500 py-20">Loading application...</p>
+            <!-- Initial Skeleton Loader -->
+            <div id="skeleton-loader">
+                <div class="animate-pulse space-y-12">
+                    <div class="h-24 bg-gray-200 rounded-2xl"></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="h-32 bg-gray-200 rounded-xl"></div>
+                        <div class="h-32 bg-gray-200 rounded-xl"></div>
+                        <div class="h-32 bg-gray-200 rounded-xl"></div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="h-8 w-1/3 bg-gray-200 rounded"></div>
+                        <div class="h-40 bg-gray-200 rounded-xl"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
     <!-- Footer -->
-    <footer class="bg-gray-800 text-white p-6 text-center mt-auto">
-        <p>&copy; <span id="current-year"></span> Bangladeshi American Forum - Michigan Chapter (BAF-M)</p>
-        <p class="text-sm mt-1 text-gray-400">
-            Authenticated User ID: <span id="footer-user-id" class="font-mono text-xs ml-2">...</span>
-        </p>
+    <footer id="footer" class="bg-gray-800 text-white p-6 mt-auto no-print">
+        <!-- Footer content will be rendered by JavaScript -->
     </footer>
 </div>
 
@@ -259,6 +345,115 @@
 
     window.showModal = showModal;
     
+    // Favorites System
+    window.toggleFavorite = (itemId, itemType) => {
+        const favoriteKey = `${itemType}-${itemId}`;
+        const index = favorites.indexOf(favoriteKey);
+        
+        if (index > -1) {
+            favorites.splice(index, 1);
+            showModal('Removed from favorites', 'info');
+        } else {
+            favorites.push(favoriteKey);
+            showModal('Added to favorites ⭐', 'success');
+        }
+        
+        localStorage.setItem('bafm_favorites', JSON.stringify(favorites));
+        renderApp();
+    };
+    
+    window.isFavorite = (itemId, itemType) => {
+        return favorites.includes(`${itemType}-${itemId}`);
+    };
+    
+    // Dark Mode Toggle
+    window.toggleDarkMode = () => {
+        isDarkMode = !isDarkMode;
+        localStorage.setItem('bafm_dark_mode', isDarkMode.toString());
+        document.body.classList.toggle('dark-mode', isDarkMode);
+    };
+    
+    // Search functionality
+    window.updateSearch = (query) => {
+        searchQuery = query.toLowerCase();
+        renderApp();
+    };
+    
+    // Filter functionality
+    window.updateFilter = (filterType, value) => {
+        activeFilters[filterType] = value;
+        renderApp();
+    };
+    
+    // Export to Calendar (iCal format)
+    window.exportToCalendar = (eventId) => {
+        const event = events.find(e => e.id === eventId);
+        if (!event) return;
+        
+        const startDate = new Date(event.event_datetime.toMillis());
+        const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // +2 hours
+        
+        const formatDate = (date) => {
+            return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        };
+        
+        const ical = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//BAF-M//Event//EN
+BEGIN:VEVENT
+UID:${eventId}@bafm.org
+DTSTART:${formatDate(startDate)}
+DTEND:${formatDate(endDate)}
+SUMMARY:${t_data(event, 'title')}
+DESCRIPTION:${t_data(event, 'desc').replace(/\n/g, '\\n')}
+LOCATION:${event.location || 'TBD'}
+END:VEVENT
+END:VCALENDAR`;
+        
+        const blob = new Blob([ical], { type: 'text/calendar' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bafm-event-${eventId}.ics`;
+        a.click();
+        showModal('Calendar event downloaded!', 'success');
+    };
+    
+    // Social Share
+    window.shareContent = async (type, id, title) => {
+        const url = `${window.location.origin}${window.location.pathname}#/${type}?id=${id}`;
+        const text = `Check out: ${title} - BAF-M`;
+        
+        if (navigator.share) {
+            try {
+                await navigator.share({ title, text, url });
+                showModal('Shared successfully!', 'success');
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    copyToClipboard(url);
+                }
+            }
+        } else {
+            copyToClipboard(url);
+        }
+    };
+    
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text).then(() => {
+            showModal('Link copied to clipboard!', 'success');
+        });
+    };
+    
+    // Analytics Event Tracking
+    window.trackEvent = (category, action, label) => {
+        if (window.gtag) {
+            gtag('event', action, {
+                'event_category': category,
+                'event_label': label
+            });
+        }
+        console.log('Analytics:', category, action, label);
+    };
 
     // --- FIX START: Define currentLang outside of the module scope for inline HTML handlers to access.    // However, since we are in a module, we will attach it to window for accessibility.
     let currentLang = localStorage.getItem('bafm_lang') || 'en';
@@ -276,6 +471,23 @@ window.adminSubmissions = []; // Initialize admin submissions array
 window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
 let adminUserIds = []; // List of admin user IDs from Firestore
 let isAdmin = false; // Track if current user is admin
+
+// NEW: Feature state variables
+let searchQuery = '';
+let favorites = JSON.parse(localStorage.getItem('bafm_favorites') || '[]');
+let isDarkMode = localStorage.getItem('bafm_dark_mode') === 'true';
+let activeFilters = {
+    eventCategory: 'all',
+    businessCategory: 'all',
+    dateRange: 'all',
+    location: 'all'
+};
+let photoGalleries = []; // For past event photos
+
+    // Apply dark mode on load (must be after isDarkMode is declared)
+    if (isDarkMode) {
+        document.body.classList.add('dark-mode');
+    }
 
     // Utility to handle bilingual content lookup
     const t = (key) => LANG_CONTENT[key] ? LANG_CONTENT[key][currentLang] : `MISSING_KEY:${key}`;
@@ -423,13 +635,13 @@ let isAdmin = false; // Track if current user is admin
             onAuthStateChanged(auth, (user) => {
                 userId = user ? user.uid : 'anonymous-' + crypto.randomUUID();
                 isAuthReady = true;
-                document.getElementById('footer-user-id').textContent = userId;
+                // Footer will be rendered by renderApp(), so we'll set the user ID there
                 setupFirestoreListeners();
                 renderApp();
             });
         } catch (error) {
             console.error("Firebase Initialization/Auth Error:", error);
-            document.getElementById('loading-message').textContent = `Initialization Error: ${error.message}. Check console.`;
+            document.getElementById('content-container').innerHTML = `<div class="max-w-7xl mx-auto text-center py-20 text-red-600"><strong>Initialization Error:</strong> ${error.message}. Please check the console.</div>`;
         }
     };
 
@@ -631,12 +843,30 @@ let isAdmin = false; // Track if current user is admin
                         `).join('')}
                     </nav>
 
-                    <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 md:space-x-4">
+                        <!-- Search Bar (Desktop) -->
+                        <div class="hidden lg:block">
+                            <input type="text" 
+                                placeholder="🔍 Search..." 
+                                value="${searchQuery}"
+                                oninput="updateSearch(this.value)"
+                                class="px-3 py-2 text-sm border border-gray-300 rounded-full focus:ring-2 focus:ring-green-500 focus:border-transparent w-48">
+                        </div>
+                        
+                        <!-- Dark Mode Toggle -->
+                        <button onclick="toggleDarkMode()" 
+                            class="p-2 rounded-full hover:bg-gray-100 transition-colors no-print"
+                            title="Toggle Dark Mode">
+                            ${isDarkMode ? '☀️' : '🌙'}
+                        </button>
+                        
+                        <!-- Language Toggle -->
                         <button onclick="setLanguage('${targetLang}')"
                             class="text-sm font-bold w-12 h-8 rounded-full transition-colors ${currentLang === 'bn' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'} shadow-md">
                             ${t('language_toggle')}
                         </button>
 
+                        <!-- Mobile Menu Toggle -->
                         <button type="button" onclick="toggleMobileMenu()" 
                             class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500" 
                             aria-expanded="${isMobileMenuOpen}">
@@ -648,6 +878,15 @@ let isAdmin = false; // Track if current user is admin
                             </svg>
                         </button>
                     </div>
+                </div>
+                
+                <!-- Mobile Search Bar -->
+                <div class="lg:hidden pb-3">
+                    <input type="text" 
+                        placeholder="🔍 Search events, businesses, issues..." 
+                        value="${searchQuery}"
+                        oninput="updateSearch(this.value)"
+                        class="w-full px-4 py-2 text-sm border border-gray-300 rounded-full focus:ring-2 focus:ring-green-500 focus:border-transparent">
                 </div>
             </div>
 
@@ -669,13 +908,22 @@ let isAdmin = false; // Track if current user is admin
     };
 
     const renderHome = () => {
-        const featuredEvents = events.filter(e => e.event_datetime.toMillis() > Date.now()).slice(0, 3);
+        const featuredEvents = events.filter(e => e.event_datetime && e.event_datetime.toMillis && e.event_datetime.toMillis() > Date.now()).slice(0, 3);
         const eventCards = featuredEvents.length > 0 ? featuredEvents.map(event => `
-            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-                <h3 class="text-xl font-semibold mb-2 text-green-700">${t_data(event, 'title')}</h3>
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 relative">
+                <button onclick="toggleFavorite('${event.id}', 'event'); event.stopPropagation();" 
+                    class="absolute top-4 right-4 favorite-btn ${isFavorite(event.id, 'event') ? 'active' : ''}" 
+                    title="Add to favorites">
+                    ${isFavorite(event.id, 'event') ? '⭐' : '☆'}
+                </button>
+                <h3 class="text-xl font-semibold mb-2 text-green-700 pr-8">${t_data(event, 'title')}</h3>
                 <p class="text-sm text-gray-500 mb-3"><strong class="font-medium">${t('event_datetime')}:</strong> ${new Date(event.event_datetime.toMillis()).toLocaleString(currentLang === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' })}</p>
                 <p class="text-gray-700 mb-4 line-clamp-3">${t_data(event, 'desc')}</p>
-                <a href="#/events-and-issues" onclick="event.preventDefault(); navigateTo('/events-and-issues')" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">${t('view_details')} &rarr;</a>
+                <div class="flex space-x-2">
+                    <a href="#/events-and-issues" onclick="event.preventDefault(); navigateTo('/events-and-issues')" class="flex-1 text-center text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg transition-colors">${t('view_details')} &rarr;</a>
+                    <button onclick="exportToCalendar('${event.id}'); event.stopPropagation();" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm" title="Add to Calendar">📅</button>
+                    <button onclick="event.stopPropagation(); shareContent('events', '${event.id}', 'Event');" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm" title="Share">🔗</button>
+                </div>
             </div>
         `).join('') : `<p class="col-span-3 text-center text-gray-500">${t('no_content_available')}</p>`;
 
@@ -683,15 +931,36 @@ let isAdmin = false; // Track if current user is admin
             'program_1', 'program_2', 'program_3', 'program_4',
             'program_5', 'program_6', 'program_7'
         ];
+        
+        // Community Stats
+        const upcomingEventsCount = events.filter(e => e.event_datetime && e.event_datetime.toMillis && e.event_datetime.toMillis() > Date.now()).length;
+        const activeVolunteerNeeds = volunteerNeeds.filter(v => v.is_active).length;
+        const totalBusinesses = localBusinesses.length;
 
         return `
             <!-- Hero Section -->
-            <div class="text-center py-12 md:py-20 bg-green-50 rounded-2xl shadow-inner mb-12">
+            <div class="text-center py-12 md:py-20 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl shadow-inner mb-12">
                 <h1 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4 max-w-4xl mx-auto leading-tight">${t('hero_headline')}</h1>
                 <p class="text-lg text-gray-600 mb-8 max-w-3xl mx-auto">${t('hero_body')}</p>
                 <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-                    <button onclick="navigateTo('/events-and-issues')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition-colors shadow-lg">${t('cta_view_events')}</button>
-                    <button onclick="navigateTo('/submit-content')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full transition-colors shadow-lg">${t('cta_submit_need')}</button>
+                    <button onclick="navigateTo('/events-and-issues'); trackEvent('Navigation', 'Click', 'View Events from Hero');" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition-colors shadow-lg">${t('cta_view_events')}</button>
+                    <button onclick="navigateTo('/submit-content'); trackEvent('Navigation', 'Click', 'Submit from Hero');" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full transition-colors shadow-lg">${t('cta_submit_need')}</button>
+                </div>
+            </div>
+            
+            <!-- Community Stats Dashboard -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
+                    <div class="text-4xl font-bold mb-2">${upcomingEventsCount}</div>
+                    <div class="text-green-100">Upcoming Events</div>
+                </div>
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
+                    <div class="text-4xl font-bold mb-2">${activeVolunteerNeeds}</div>
+                    <div class="text-blue-100">Volunteer Opportunities</div>
+                </div>
+                <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+                    <div class="text-4xl font-bold mb-2">${totalBusinesses}</div>
+                    <div class="text-purple-100">Community Businesses</div>
                 </div>
             </div>
 
@@ -731,6 +1000,19 @@ let isAdmin = false; // Track if current user is admin
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                 ${eventCards}
             </div>
+            
+            <!-- Newsletter Signup -->
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-8 rounded-2xl shadow-xl mb-12">
+                <div class="max-w-2xl mx-auto text-center">
+                    <h2 class="text-3xl font-bold mb-3">📧 Stay Connected</h2>
+                    <p class="text-indigo-100 mb-6">Subscribe to our newsletter for weekly updates on events, community news, and opportunities.</p>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <input type="email" id="newsletter-email" placeholder="Enter your email" class="flex-1 px-4 py-3 rounded-lg text-gray-800 focus:ring-2 focus:ring-white">
+                        <button onclick="window.subscribeNewsletter()" class="bg-white text-indigo-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 transition-colors">Subscribe</button>
+                    </div>
+                    <p class="text-xs text-indigo-200 mt-3">We respect your privacy. Unsubscribe anytime.</p>
+                </div>
+            </div>
 
             <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('quick_access_title')}</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -739,6 +1021,31 @@ let isAdmin = false; // Track if current user is admin
                 <button onclick="navigateTo('/submit-content')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-md text-lg">${t('cta_submit_need')}</button>
             </div>
         `;
+    };
+    
+    // Newsletter subscription handler
+    window.subscribeNewsletter = async () => {
+        const email = document.getElementById('newsletter-email')?.value;
+        if (!email || !email.includes('@')) {
+            showModal('Please enter a valid email address', 'warning');
+            return;
+        }
+        
+        try {
+            await addDoc(collection(db, `/artifacts/${appId}/newsletter_subscribers`), {
+                email: email,
+                subscribed_at: Timestamp.now(),
+                user_id: userId,
+                language: currentLang
+            });
+            
+            document.getElementById('newsletter-email').value = '';
+            showModal('Successfully subscribed! 🎉', 'success');
+            trackEvent('Newsletter', 'Subscribe', email);
+        } catch (error) {
+            console.error('Newsletter subscription error:', error);
+            showModal('Subscription failed. Please try again.', 'error');
+        }
     };
 
     const renderSpotlight = () => {
@@ -801,11 +1108,42 @@ let isAdmin = false; // Track if current user is admin
     };
 
     const renderBusinessDirectory = () => {
-        const directoryData = localBusinesses; // Data must come from Firestore only now
+        let filteredBusinesses = localBusinesses;
+        
+        // Apply category filter
+        if (activeFilters.businessCategory !== 'all') {
+            filteredBusinesses = filteredBusinesses.filter(b => 
+                (b.category || b.category_en || '').toLowerCase().includes(activeFilters.businessCategory.toLowerCase())
+            );
+        }
+        
+        // Apply search filter
+        if (searchQuery) {
+            filteredBusinesses = filteredBusinesses.filter(b => {
+                const name = (b.name || b.title_en || '').toLowerCase();
+                const category = (b.category || b.category_en || '').toLowerCase();
+                const details = (b.details || b.details_en || '').toLowerCase();
+                return name.includes(searchQuery) || category.includes(searchQuery) || details.includes(searchQuery);
+            });
+        }
+        
+        // Get unique categories for filter dropdown
+        const categories = [...new Set(localBusinesses.map(b => b.category || b.category_en).filter(Boolean))];
 
         return `
             <h2 class="text-3xl font-bold text-gray-800 mb-4">${t('business_dir_title')}</h2>
-            ${directoryData.length === 0 ? `<p class="text-center text-gray-500 py-4 italic">${t('no_content_available')}</p>` : ''}
+            
+            <!-- Category Filter -->
+            <div class="bg-white p-4 rounded-xl shadow-lg mb-6 no-print">
+                <label class="text-sm font-medium text-gray-700 mr-2">Filter by Category:</label>
+                <select onchange="updateFilter('businessCategory', this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="all" ${activeFilters.businessCategory === 'all' ? 'selected' : ''}>All Categories (${localBusinesses.length})</option>
+                    ${categories.map(cat => `<option value="${cat}" ${activeFilters.businessCategory === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                </select>
+                <span class="ml-4 text-sm text-gray-600">Showing ${filteredBusinesses.length} of ${localBusinesses.length} businesses</span>
+            </div>
+            
+            ${filteredBusinesses.length === 0 ? `<p class="text-center text-gray-500 py-4 italic">${searchQuery ? 'No businesses match your search.' : t('no_content_available')}</p>` : ''}
             <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead>
@@ -817,14 +1155,19 @@ let isAdmin = false; // Track if current user is admin
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        ${directoryData.map(biz => `
-                            <tr>
-                                <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${biz.name || biz.title_en}</td>
-                                <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${biz.category || biz.category_en}</td>
-                                <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${biz.address || biz.location}</td>
-                                <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${biz.details || biz.website || 'N/A'}</td>
+                        ${filteredBusinesses.map(biz => {
+                            const isFav = isFavorite(biz.id, 'business');
+                            return `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-4 text-sm font-medium text-gray-900">
+                                    <button onclick="toggleFavorite('${biz.id}', 'business'); event.stopPropagation();" class="favorite-btn ${isFav ? 'active' : ''} mr-2 no-print" title="Favorite">${isFav ? '⭐' : '☆'}</button>
+                                    ${biz.name || biz.title_en}
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-500">${biz.category || biz.category_en}</td>
+                                <td class="px-3 py-4 text-sm text-gray-500">${biz.address || biz.location}</td>
+                                <td class="px-3 py-4 text-sm text-gray-500">${biz.details || biz.website || 'N/A'}</td>
                             </tr>
-                        `).join('')}
+                        `}).join('')}
                     </tbody>
                 </table>
             </div>
@@ -832,30 +1175,90 @@ let isAdmin = false; // Track if current user is admin
     };
 
     const renderEvents = () => {
-// ...
-        const upcoming = events.filter(e => e.event_datetime.toMillis() > Date.now());
-        const past = events.filter(e => e.event_datetime.toMillis() <= Date.now());
-        const issues = civicIssues; // Use the new civicIssues array
+        // Apply search filter
+        const filterBySearch = (item, titleField, descField) => {
+            if (!searchQuery) return true;
+            const title = (item[`${titleField}_${currentLang}`] || item[titleField] || '').toLowerCase();
+            const desc = (item[`${descField}_${currentLang}`] || item[descField] || '').toLowerCase();
+            return title.includes(searchQuery) || desc.includes(searchQuery);
+        };
+        
+        // Highlight search terms
+        const highlightSearch = (text) => {
+            if (!searchQuery || !text) return text;
+            const regex = new RegExp(`(${searchQuery})`, 'gi');
+            return text.replace(regex, '<span class="search-highlight">$1</span>');
+        };
+        
+        let filteredEvents = events.filter(e => filterBySearch(e, 'title', 'desc'));
+        
+        // Apply date range filter
+        if (activeFilters.dateRange !== 'all') {
+            const now = Date.now();
+            filteredEvents = filteredEvents.filter(e => {
+                if (!e.event_datetime || !e.event_datetime.toMillis) return false;
+                const eventTime = e.event_datetime.toMillis();
+                switch(activeFilters.dateRange) {
+                    case 'week': return eventTime >= now && eventTime <= now + 7 * 24 * 60 * 60 * 1000;
+                    case 'month': return eventTime >= now && eventTime <= now + 30 * 24 * 60 * 60 * 1000;
+                    case 'past': return eventTime < now;
+                    default: return true;
+                }
+            });
+        }
+        
+        const upcoming = filteredEvents.filter(e => e.event_datetime && e.event_datetime.toMillis && e.event_datetime.toMillis() > Date.now());
+        const past = filteredEvents.filter(e => e.event_datetime && e.event_datetime.toMillis && e.event_datetime.toMillis() <= Date.now());
+        const issues = civicIssues.filter(i => filterBySearch(i, 'title', 'body'));
 
         const eventToHtml = (event, isPast) => {
+            if (!event || !event.event_datetime || !event.event_datetime.toMillis) {
+                return '<div class="bg-red-50 p-4 rounded text-red-600">Invalid event data</div>';
+            }
             const date = new Date(event.event_datetime.toMillis()).toLocaleString(currentLang === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'full', timeStyle: 'short' });
+            const isFav = isFavorite(event.id, 'event');
             return `
-                <div class="bg-white p-6 rounded-xl shadow-lg ${isPast ? 'opacity-70' : 'border-t-4 border-green-500'}">
-                    <h3 class="text-xl font-semibold mb-2 ${isPast ? 'text-gray-600' : 'text-green-700'}">${t_data(event, 'title')}</h3>
+                <div class="bg-white p-6 rounded-xl shadow-lg ${isPast ? 'opacity-70' : 'border-t-4 border-green-500'} relative">
+                    <button onclick="toggleFavorite('${event.id}', 'event'); event.stopPropagation();" 
+                        class="absolute top-4 right-4 favorite-btn ${isFav ? 'active' : ''} no-print" 
+                        title="${isFav ? 'Remove from' : 'Add to'} favorites">
+                        ${isFav ? '⭐' : '☆'}
+                    </button>
+                    ${event.image_url ? `<img src="${event.image_url}" alt="${t_data(event, 'title')}" class="w-full h-48 object-cover rounded-lg mb-4">` : ''}
+                    <h3 class="text-xl font-semibold mb-2 ${isPast ? 'text-gray-600' : 'text-green-700'} pr-8">${highlightSearch(t_data(event, 'title'))}</h3>
                     <p class="text-sm text-gray-500 mb-1"><strong class="font-medium">${t('event_datetime')}:</strong> ${date}</p>
                     <p class="text-sm text-gray-500 mb-3"><strong class="font-medium">${t('event_location')}:</strong> ${event.location || 'Online'}</p>
-                    <div class="text-gray-700 mt-2">${t_data(event, 'desc')}</div>
+                    <div class="text-gray-700 mt-2">${highlightSearch(t_data(event, 'desc'))}</div>
+                    ${!isPast ? `
+                    <div class="flex space-x-2 mt-4 no-print">
+                        <button onclick="exportToCalendar('${event.id}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors">📅 Add to Calendar</button>
+                        <button onclick="shareContent('events', '${event.id}', 'Event')" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm" title="Share">🔗</button>
+                        <button onclick="window.print()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm" title="Print">🖨️</button>
+                    </div>
+                    ` : ''}
                 </div>
             `;
         };
 
         const issueToHtml = (issue) => {
+            if (!issue || !issue.posted_date || !issue.posted_date.toMillis) {
+                return '<div class="bg-red-50 p-4 rounded text-red-600">Invalid issue data</div>';
+            }
             const date = new Date(issue.posted_date.toMillis()).toLocaleDateString(currentLang === 'bn' ? 'bn-BD' : 'en-US', { dateStyle: 'medium' });
+            const isFav = isFavorite(issue.id, 'civic');
             return `
-                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
-                    <h3 class="text-xl font-semibold mb-2 text-blue-700">${t_data(issue, 'title')}</h3>
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500 relative">
+                    <button onclick="toggleFavorite('${issue.id}', 'civic'); event.stopPropagation();" 
+                        class="absolute top-4 right-4 favorite-btn ${isFav ? 'active' : ''}" 
+                        title="${isFav ? 'Remove from' : 'Add to'} favorites">
+                        ${isFav ? '⭐' : '☆'}
+                    </button>
+                    <h3 class="text-xl font-semibold mb-2 text-blue-700 pr-8">${highlightSearch(t_data(issue, 'title'))}</h3>
                     <p class="text-sm text-gray-500 mb-3">Posted: ${date} / Location: ${issue.location || 'Metro Detroit'}</p>
-                    <div class="text-gray-700 mt-2">${t_data(issue, 'body')}</div>
+                    <div class="text-gray-700 mt-2">${highlightSearch(t_data(issue, 'body'))}</div>
+                    <div class="flex space-x-2 mt-4 no-print">
+                        <button onclick="shareContent('civic', '${issue.id}', 'Civic Issue')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">🔗 Share</button>
+                    </div>
                 </div>
             `;
         };
@@ -863,13 +1266,32 @@ let isAdmin = false; // Track if current user is admin
         return `
             <h1 class="text-4xl font-extrabold text-gray-800 mb-4">${t('events_issues_headline')}</h1>
             <p class="text-lg text-gray-600 mb-8 max-w-4xl">${t('events_issues_body')}</p>
+            
+            <!-- Filters -->
+            <div class="bg-white p-4 rounded-xl shadow-lg mb-8 no-print">
+                <div class="flex flex-wrap gap-4 items-center">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 mr-2">Date Range:</label>
+                        <select onchange="updateFilter('dateRange', this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                            <option value="all" ${activeFilters.dateRange === 'all' ? 'selected' : ''}>All Time</option>
+                            <option value="week" ${activeFilters.dateRange === 'week' ? 'selected' : ''}>Next 7 Days</option>
+                            <option value="month" ${activeFilters.dateRange === 'month' ? 'selected' : ''}>Next 30 Days</option>
+                            <option value="past" ${activeFilters.dateRange === 'past' ? 'selected' : ''}>Past Events</option>
+                        </select>
+                    </div>
+                    <div class="flex-1"></div>
+                    <button onclick="activeFilters = {eventCategory: 'all', businessCategory: 'all', dateRange: 'all', location: 'all'}; searchQuery = ''; renderApp();" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Clear All Filters</button>
+                </div>
+            </div>
+            
+            ${searchQuery ? `<div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6"><p class="text-sm text-blue-800"><strong>Search Results for:</strong> "${searchQuery}" - Found ${upcoming.length + past.length + issues.length} items</p></div>` : ''}
 
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('upcoming_events_title')}</h2>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('upcoming_events_title')} (${upcoming.length})</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                ${upcoming.length > 0 ? upcoming.map(e => eventToHtml(e, false)).join('') : `<p class="col-span-2 text-gray-500">${t('no_content_available')}</p>`}
+                ${upcoming.length > 0 ? upcoming.map(e => eventToHtml(e, false)).join('') : `<p class="col-span-2 text-gray-500">${searchQuery ? 'No events match your search.' : t('no_content_available')}</p>`}
             </div>
 
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('civic_summaries_title')}</h2>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('civic_summaries_title')} (${issues.length})</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
                 ${issues.length > 0 ? issues.map(issueToHtml).join('') : `
                     <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500 md:col-span-2">
@@ -881,8 +1303,9 @@ let isAdmin = false; // Track if current user is admin
 
             <h2 class="text-3xl font-bold text-gray-800 mb-6">${t('past_events_title')} (${past.length})</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                ${past.length > 0 ? past.map(e => eventToHtml(e, true)).join('') : `<p class="col-span-2 text-gray-500">${t('no_content_available')}</p>`}
+                ${past.length > 0 ? past.slice(0, 6).map(e => eventToHtml(e, true)).join('') : `<p class="col-span-2 text-gray-500">${t('no_content_available')}</p>`}
             </div>
+            ${past.length > 6 ? `<div class="text-center mt-6"><button onclick="window.showAllPastEvents = true; renderApp();" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">View All ${past.length} Past Events</button></div>` : ''}
         `;
     };
 
@@ -1700,6 +2123,69 @@ let isAdmin = false; // Track if current user is admin
             showModal(`Error removing super admin: ${error.message}`, 'error');
         }
     };
+    
+    // Export data to CSV
+    window.exportToCSV = (data, filename) => {
+        if (!data || data.length === 0) {
+            showModal('No data to export', 'warning');
+            return;
+        }
+        
+        const headers = Object.keys(data[0]);
+        const csvContent = [
+            headers.join(','),
+            ...data.map(row => headers.map(header => {
+                const value = row[header];
+                if (value === null || value === undefined) return '';
+                // Handle timestamps
+                if (value && typeof value.toMillis === 'function') {
+                    return `"${new Date(value.toMillis()).toISOString()}"`;
+                }
+                // Escape quotes and wrap in quotes if contains comma
+                const stringValue = String(value).replace(/"/g, '""');
+                return stringValue.includes(',') ? `"${stringValue}"` : stringValue;
+            }).join(','))
+        ].join('\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showModal(`Exported ${data.length} records to CSV`, 'success');
+        trackEvent('Admin', 'Export CSV', filename);
+    };
+    
+    // Bulk approve submissions
+    window.bulkApprove = async (submissionIds) => {
+        const confirmed = await showModal(
+            `Approve ${submissionIds.length} submissions?\n\nThis will publish all selected items.`,
+            'confirm',
+            { confirmText: 'Approve All', cancelText: 'Cancel', showCancel: true }
+        );
+        
+        if (!confirmed) return;
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (const id of submissionIds) {
+            const submission = window.adminSubmissions.find(s => s.id === id);
+            if (!submission) continue;
+            
+            try {
+                await approveSubmission(id, submission.submission_type, submission.payload);
+                successCount++;
+            } catch (error) {
+                console.error(`Failed to approve ${id}:`, error);
+                failCount++;
+            }
+        }
+        
+        showModal(`Bulk approval complete!\n\nSuccess: ${successCount}\nFailed: ${failCount}`, successCount > 0 ? 'success' : 'error');
+    };
 
     // Tab switching for admin portal
     window.switchAdminTab = (tabName) => {
@@ -2039,9 +2525,62 @@ let isAdmin = false; // Track if current user is admin
             }
         }, 0);
     };
+    
+    const renderFooter = () => {
+        const footerHtml = `
+            <div class="max-w-7xl mx-auto">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+                    <!-- About Section -->
+                    <div>
+                        <h3 class="text-lg font-bold mb-3">BAF-M</h3>
+                        <p class="text-sm text-gray-400">Bangladeshi American Forum - Michigan Chapter</p>
+                        <p class="text-sm text-gray-400 mt-2">Connecting our community since 2025</p>
+                    </div>
+                    
+                    <!-- Quick Links -->
+                    <div>
+                        <h3 class="text-lg font-bold mb-3">Quick Links</h3>
+                        <div class="space-y-2 text-sm">
+                            <a href="#/" onclick="navigateTo('/')" class="block text-gray-400 hover:text-white">Home</a>
+                            <a href="#/events-and-issues" onclick="navigateTo('/events-and-issues')" class="block text-gray-400 hover:text-white">Events</a>
+                            <a href="#/volunteer" onclick="navigateTo('/volunteer')" class="block text-gray-400 hover:text-white">Volunteer</a>
+                            <a href="#/submit-content" onclick="navigateTo('/submit-content')" class="block text-gray-400 hover:text-white">Submit Content</a>
+                        </div>
+                    </div>
+                    
+                    <!-- Social & Contact -->
+                    <div>
+                        <h3 class="text-lg font-bold mb-3">Connect With Us</h3>
+                        <div class="flex space-x-4 mb-4">
+                            <a href="https://facebook.com/bafmichigan" target="_blank" class="text-gray-400 hover:text-white text-2xl" title="Facebook">👤</a>
+                            <a href="https://twitter.com/bafmichigan" target="_blank" class="text-gray-400 hover:text-white text-2xl" title="Twitter">🐦</a>
+                            <a href="mailto:info@bafmichigan.org" class="text-gray-400 hover:text-white text-2xl" title="Email">✉️</a>
+                        </div>
+                        <p class="text-sm text-gray-400">Email: info@bafmichigan.org</p>
+                    </div>
+                </div>
+                
+                <div class="border-t border-gray-700 pt-6 text-center">
+                    <p class="text-sm">&copy; <span id="current-year"></span> Bangladeshi American Forum - Michigan Chapter (BAF-M)</p>
+                    <p class="text-xs mt-2 text-gray-400">
+                        User ID: <span id="footer-user-id" class="font-mono">...</span> | 
+                        <button onclick="if(favorites.length > 0) {alert('Favorites: ' + favorites.join(', ')); } else { showModal('No favorites yet', 'info'); }" class="text-yellow-400 hover:text-yellow-300">⭐ My Favorites (${favorites.length})</button> | 
+                        v1.1.0
+                    </p>
+                </div>
+            </div>
+        `;
+        document.getElementById('footer').innerHTML = footerHtml;
+        document.getElementById('footer-user-id').textContent = userId || '...';
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+    };
+    
     const renderApp = () => {
         if (!isAuthReady) {
-            document.getElementById('loading-message').textContent = t('loading_data');
+            // The skeleton loader is already visible by default.
+            // We can update a text element if one exists, but the skeleton is the primary UI.
+            const loadingMessage = document.getElementById('loading-message');
+            if(loadingMessage) loadingMessage.textContent = t('loading_data');
             return;
         }
 
@@ -2076,7 +2615,7 @@ let isAdmin = false; // Track if current user is admin
         }
 
         document.getElementById('content-container').innerHTML = `<div class="max-w-7xl mx-auto">${contentHtml}</div>`;
-        document.getElementById('current-year').textContent = new Date().getFullYear();
+        renderFooter();
     };
 
     // --- INITIAL DATA SEEDING (For Local Business Directory) ---
