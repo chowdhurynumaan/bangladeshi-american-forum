@@ -403,7 +403,9 @@ let isAdmin = false; // Track if current user is admin
     };
 
     // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
-    const ADMIN_USER_ID = 'jqcqQkBCDURzaTi5giGltZeCq2n1'; // Primary admin (always admin)
+    // Super Admins: Full control including managing other super admins and admins
+    // Admins: Can approve/reject submissions and manage content
+    const getSuperAdminDocPath = () => `/artifacts/${appId}/config/super_admins`;
     const getAdminDocPath = () => `/artifacts/${appId}/config/admins`;
     const initializeAppAndAuth = async () => {
         try {
@@ -440,8 +442,34 @@ let isAdmin = false; // Track if current user is admin
         if (!isAuthReady) return;
 
         // Set initial admin status
-        isAdmin = (userId === ADMIN_USER_ID);
+        window.isSuperAdmin = false;
+        isAdmin = false;
+        window.superAdminUserIds = [];
         adminUserIds = [];
+
+        // Load super admin list from Firestore
+        try {
+            onSnapshot(doc(db, getSuperAdminDocPath()), (snapshot) => {
+                if (snapshot.exists()) {
+                    window.superAdminUserIds = snapshot.data().user_ids || [];
+                } else {
+                    window.superAdminUserIds = [];
+                }
+                window.isSuperAdmin = window.superAdminUserIds.includes(userId);
+                // Super admins are also admins
+                isAdmin = window.isSuperAdmin || adminUserIds.includes(userId);
+                console.log('Super admin status updated:', { userId, isSuperAdmin: window.isSuperAdmin, superAdminUserIds: window.superAdminUserIds });
+                renderApp();
+            }, (error) => {
+                console.warn('Super admin list not found:', error);
+                window.superAdminUserIds = [];
+                window.isSuperAdmin = false;
+                renderApp();
+            });
+        } catch (e) {
+            console.warn('Could not set up super admin listener:', e);
+            renderApp();
+        }
 
         // Load admin list from Firestore (non-blocking)
         try {
@@ -451,25 +479,24 @@ let isAdmin = false; // Track if current user is admin
                 } else {
                     adminUserIds = [];
                 }
-                // Check if current user is admin (primary admin or in the list)
-                isAdmin = (userId === ADMIN_USER_ID) || adminUserIds.includes(userId);
-                console.log('Admin status updated:', { userId, isAdmin, adminUserIds });
+                // Check if current user is admin (super admin or in the admin list)
+                isAdmin = window.isSuperAdmin || adminUserIds.includes(userId);
+                console.log('Admin status updated:', { userId, isAdmin, isSuperAdmin: window.isSuperAdmin, adminUserIds });
                 renderApp(); // Re-render to show/hide admin portal
             }, (error) => {
-                console.warn('Admin list not found - only primary admin will have access:', error);
-                // Fallback to primary admin only
-                isAdmin = (userId === ADMIN_USER_ID);
+                console.warn('Admin list not found:', error);
                 adminUserIds = [];
-                renderApp(); // Still render even on error
+                isAdmin = window.isSuperAdmin; // Super admins still have access
+                renderApp();
             });
         } catch (e) {
             console.warn('Could not set up admin listener:', e);
-            renderApp(); // Still render even on exception
+            renderApp();
         }
 
         // New: Admin listener for all submissions (only fetched for admin users)
         const checkAndSetupAdminListener = () => {
-            if (userId === ADMIN_USER_ID || adminUserIds.includes(userId)) {
+            if (window.isSuperAdmin || adminUserIds.includes(userId)) {
                 // FIX: Read from the new global submissions queue, NOT the user-specific path
                 onSnapshot(collection(db, getSubmissionsQueuePath()), (snapshot) => {
                     window.adminSubmissions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -525,7 +552,7 @@ let isAdmin = false; // Track if current user is admin
     };
 
     // --- ROUTING & PAGE RENDERING (Using Hash-based routing to avoid SecurityError) ---
-    // The ADMIN_USER_ID is defined above near Firebase config for easy modification.
+    // Super admins and admins are now managed through Firestore documents for easy modification.
 
     const routeMap = {
         '/': 'home',
@@ -1505,10 +1532,10 @@ let isAdmin = false; // Track if current user is admin
                 showModal('Error deleting item: ' + error.message, 'error');
             });
     };
-    // Admin Management Functions (Only for primary admin)
+    // Admin Management Functions (Only for super admins)
     window.addAdmin = async () => {
-        if (userId !== ADMIN_USER_ID) {
-            showModal('Only the primary admin can add other admins.', 'error');
+        if (!window.isSuperAdmin) {
+            showModal('Only super admins can add regular admins.', 'error');
             return;
         }
 
@@ -1518,8 +1545,8 @@ let isAdmin = false; // Track if current user is admin
             return;
         }
 
-        if (newAdminId === ADMIN_USER_ID) {
-            showModal('This user is already the primary admin.', 'info');
+        if (window.superAdminUserIds.includes(newAdminId)) {
+            showModal('This user is already a super admin.', 'info');
             return;
         }
 
@@ -1559,8 +1586,8 @@ let isAdmin = false; // Track if current user is admin
     };
 
     window.removeAdmin = async (adminIdToRemove) => {
-        if (userId !== ADMIN_USER_ID) {
-            showModal('Only the primary admin can remove other admins.', 'error');
+        if (!window.isSuperAdmin) {
+            showModal('Only super admins can remove regular admins.', 'error');
             return;
         }
 
@@ -1584,6 +1611,93 @@ let isAdmin = false; // Track if current user is admin
         } catch (error) {
             console.error('Error removing admin:', error);
             showModal(`Error removing admin: ${error.message}`, 'error');
+        }
+    };
+
+    // Super Admin Management Functions (Only for super admins)
+    window.addSuperAdmin = async () => {
+        if (!window.isSuperAdmin) {
+            showModal('Only super admins can add other super admins.', 'error');
+            return;
+        }
+
+        const newSuperAdminId = document.getElementById('new-super-admin-id')?.value.trim();
+        if (!newSuperAdminId) {
+            showModal('Please enter a valid User ID.', 'warning');
+            return;
+        }
+
+        if (window.superAdminUserIds.includes(newSuperAdminId)) {
+            showModal('This user is already a super admin.', 'info');
+            return;
+        }
+
+        const confirmed = await showModal(
+            `Add ${newSuperAdminId} as a SUPER ADMIN?\n\nThey will have full control including managing super admins, admins, and all content.`,
+            'confirm',
+            { confirmText: 'Add Super Admin', cancelText: 'Cancel', showCancel: true }
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const superAdminDocRef = doc(db, getSuperAdminDocPath());
+            const superAdminDoc = await getDoc(superAdminDocRef);
+            
+            if (superAdminDoc.exists()) {
+                await updateDoc(superAdminDocRef, {
+                    user_ids: [...window.superAdminUserIds, newSuperAdminId]
+                });
+            } else {
+                await setDoc(superAdminDocRef, {
+                    user_ids: [newSuperAdminId]
+                });
+            }
+
+            document.getElementById('new-super-admin-id').value = '';
+            showModal('Super admin added successfully!', 'success');
+        } catch (error) {
+            console.error('Error adding super admin:', error);
+            showModal(`Error adding super admin: ${error.message}`, 'error');
+        }
+    };
+
+    window.removeSuperAdmin = async (superAdminIdToRemove) => {
+        if (!window.isSuperAdmin) {
+            showModal('Only super admins can remove other super admins.', 'error');
+            return;
+        }
+
+        if (superAdminIdToRemove === userId) {
+            showModal('You cannot remove yourself as a super admin.', 'warning');
+            return;
+        }
+
+        const confirmed = await showModal(
+            `Remove SUPER ADMIN access for:\n${superAdminIdToRemove}?\n\nThey will lose all super admin privileges.`,
+            'confirm',
+            { confirmText: 'Remove', cancelText: 'Cancel', showCancel: true }
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const superAdminDocRef = doc(db, getSuperAdminDocPath());
+            const newSuperAdminList = window.superAdminUserIds.filter(uid => uid !== superAdminIdToRemove);
+            
+            if (newSuperAdminList.length === 0) {
+                showModal('Cannot remove the last super admin. Add another super admin first.', 'error');
+                return;
+            }
+
+            await updateDoc(superAdminDocRef, {
+                user_ids: newSuperAdminList
+            });
+
+            showModal('Super admin removed successfully!', 'success');
+        } catch (error) {
+            console.error('Error removing super admin:', error);
+            showModal(`Error removing super admin: ${error.message}`, 'error');
         }
     };
 
@@ -1717,9 +1831,12 @@ let isAdmin = false; // Track if current user is admin
                     <button onclick="window.switchAdminTab('businesses')" id="tab-businesses" class="admin-tab-inactive py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm flex-shrink-0">
                         Business (${localBusinesses.length})
                     </button>
-                    ${userId === ADMIN_USER_ID ? `
+                    ${window.isSuperAdmin ? `
+                    <button onclick="window.switchAdminTab('super-admins')" id="tab-super-admins" class="admin-tab-inactive py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm flex-shrink-0">
+                        Super Admins (${window.superAdminUserIds.length})
+                    </button>
                     <button onclick="window.switchAdminTab('admins')" id="tab-admins" class="admin-tab-inactive py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm flex-shrink-0">
-                        Admins (${adminUserIds.length + 1})
+                        Admins (${adminUserIds.length})
                     </button>
                     ` : ''}
                 </nav>
@@ -1830,12 +1947,51 @@ let isAdmin = false; // Track if current user is admin
                     </div>
                 </div>
 
-                <!-- Admins Tab (Only visible to primary admin) -->
-                ${userId === ADMIN_USER_ID ? `
+                <!-- Admins Tab (Only visible to super admins) -->
+                ${window.isSuperAdmin ? `
+                <div id="content-super-admins" class="admin-tab-content">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6">🔑 Manage Super Admins</h2>
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                        <p class="text-sm text-red-800"><strong>⚠️ CRITICAL:</strong> Super admins have FULL control over the system, including managing other super admins. Only grant this to highly trusted individuals.</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Add New Super Admin -->
+                        <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-red-500">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">➕ Add New Super Admin</h3>
+                            <p class="text-sm text-gray-600 mb-4">Enter the User ID of the person you want to grant super admin privileges. Users can find their ID at the bottom of the page in the footer.</p>
+                            <div class="space-y-3">
+                                <input type="text" id="new-super-admin-id" placeholder="Enter User ID (e.g., abc123xyz...)" class="w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-red-500 focus:ring-2 focus:ring-red-200 p-3">
+                                <button onclick="window.addSuperAdmin()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-5 rounded-lg transition-colors shadow-lg">
+                                    Add Super Admin
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Current Super Admins List -->
+                        <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-red-500">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">👑 Current Super Admins (${window.superAdminUserIds.length})</h3>
+                            <ul class="space-y-2">
+                                ${window.superAdminUserIds.map(uid => `
+                                    <li class="flex justify-between items-center bg-red-50 p-3 rounded-lg border border-red-200 hover:bg-red-100 transition-colors">
+                                        <div class="flex-1 min-w-0">
+                                            <span class="font-mono text-xs text-gray-700 block truncate">${uid}</span>
+                                            ${uid === userId ? '<span class="text-red-600 font-semibold text-xs">(You)</span>' : ''}
+                                        </div>
+                                        ${uid === userId ? 
+                                            '<span class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">YOU</span>' :
+                                            `<button onclick="window.removeSuperAdmin('${uid}')" class="text-red-600 hover:text-red-800 text-xs font-bold px-3 py-1 rounded border border-red-600 hover:bg-red-50 transition-colors">REMOVE</button>`
+                                        }
+                                    </li>
+                                `).join('')}
+                                ${window.superAdminUserIds.length === 0 ? '<li class="text-center text-gray-500 italic py-4">No super admins found. Please add your User ID to the Firestore super_admins document.</li>' : ''}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="content-admins" class="admin-tab-content">
-                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Manage Administrators</h2>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6">👥 Manage Admins</h2>
                     <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6">
-                        <p class="text-sm text-yellow-800"><strong>⚠️ Important:</strong> Only grant admin access to trusted individuals. Admins can approve/reject submissions, edit content, and manage all published data.</p>
+                        <p class="text-sm text-yellow-800"><strong>ℹ️ Info:</strong> Admins can approve/reject submissions, edit content, and manage all published data. They cannot manage super admins or other admins.</p>
                     </div>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <!-- Add New Admin -->
@@ -1851,15 +2007,8 @@ let isAdmin = false; // Track if current user is admin
                         </div>
                         <!-- Current Admins List -->
                         <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-indigo-500">
-                            <h3 class="text-xl font-bold text-gray-800 mb-4">👥 Current Admins (${adminUserIds.length + 1})</h3>
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">👥 Current Admins (${adminUserIds.length})</h3>
                             <ul class="space-y-2">
-                                <li class="flex justify-between items-center bg-indigo-50 p-3 rounded-lg border border-indigo-200">
-                                    <div class="flex-1 min-w-0">
-                                        <span class="font-mono text-xs text-gray-700 block truncate">${ADMIN_USER_ID}</span>
-                                        <span class="text-indigo-600 font-semibold text-xs">Primary Admin ${ADMIN_USER_ID === userId ? '(You)' : ''}</span>
-                                    </div>
-                                    <span class="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded">OWNER</span>
-                                </li>
                                 ${adminUserIds.map(uid => `
                                     <li class="flex justify-between items-center bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition-colors">
                                         <div class="flex-1 min-w-0">
@@ -1871,7 +2020,7 @@ let isAdmin = false; // Track if current user is admin
                                         </button>
                                     </li>
                                 `).join('')}
-                                ${adminUserIds.length === 0 ? '<li class="text-center text-gray-500 italic py-4">No additional admins added yet.</li>' : ''}
+                                ${adminUserIds.length === 0 ? '<li class="text-center text-gray-500 italic py-4">No admins added yet.</li>' : ''}
                             </ul>
                         </div>
                     </div>
