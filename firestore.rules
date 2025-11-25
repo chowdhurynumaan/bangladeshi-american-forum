@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Define your primary admin user ID here
+    function isPrimaryAdmin() {
+      return isAuthenticated() && request.auth.uid == 'jqcqQkBCDURzaTi5giGltZeCq2n1';
+    }
+    
+    // Check if user is in the admin list OR is the primary admin
+    function isAdmin(appId) {
+      return isPrimaryAdmin() || 
+        (isAuthenticated() && 
+         exists(/databases/$(database)/documents/artifacts/$(appId)/config/admins) &&
+         request.auth.uid in get(/databases/$(database)/documents/artifacts/$(appId)/config/admins).data.user_ids);
+    }
+    
+    // --- 1. ADMIN CONFIGURATION (Primary admin can read/write, others can read) ---
+    match /artifacts/{appId}/config/admins {
+      allow read: if isAuthenticated();
+      allow write: if isPrimaryAdmin();
+    }
+    
+    // --- 2. PUBLIC READ ACCESS (with ADMIN WRITE ACCESS) ---
+    match /artifacts/{appId}/public/data/{collectionName}/{document=**} {
+      allow read: if true;
+      // Any ADMIN (primary or listed) can CREATE, UPDATE, DELETE published content
+      allow create, update, delete: if isAdmin(appId);
+    }
+    
+    // --- 3. ADMIN ACCESS for SUBMISSIONS QUEUE ---
+    match /artifacts/{appId}/submissions_queue/{submissionId} {
+      allow create: if isAuthenticated(); 
+      // Any ADMIN (primary or listed) can read, update, delete submissions
+      allow read, update, delete: if isAdmin(appId);
+    }
+    
+    // --- 4. OLD Private Submissions Path (kept for backwards compatibility) ---
+    match /artifacts/{appId}/users/{userId}/raw_submissions/{submissionId} {
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow read, update: if (isAuthenticated() && request.auth.uid == userId) || isAdmin(appId);
+      allow delete: if false;
+    }
+    
+    // --- 5. DENY ALL OTHER ACCESS ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

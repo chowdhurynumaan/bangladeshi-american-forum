@@ -274,6 +274,8 @@ let civicIssues = []; // NEW: For Local Civic Summaries
 let isMobileMenuOpen = false; // NEW: State for mobile menu
 window.adminSubmissions = []; // Initialize admin submissions array
 window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
+let adminUserIds = []; // List of admin user IDs from Firestore
+let isAdmin = false; // Track if current user is admin
 
     // Utility to handle bilingual content lookup
     const t = (key) => LANG_CONTENT[key] ? LANG_CONTENT[key][currentLang] : `MISSING_KEY:${key}`;
@@ -401,7 +403,8 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
     };
 
     // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
-    const ADMIN_USER_ID = 'jqcqQkBCDURzaTi5giGltZeCq2n1';
+    const ADMIN_USER_ID = 'jqcqQkBCDURzaTi5giGltZeCq2n1'; // Primary admin (always admin)
+    const getAdminDocPath = () => `/artifacts/${appId}/config/admins`;
     const initializeAppAndAuth = async () => {
         try {
             setLogLevel('debug'); // Enable Firestore logging
@@ -436,17 +439,47 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
     const setupFirestoreListeners = () => {
         if (!isAuthReady) return;
 
-        // New: Admin listener for all submissions (only fetched for admin user later)
-        if (userId === ADMIN_USER_ID) {
-            // FIX: Read from the new global submissions queue, NOT the user-specific path
-            onSnapshot(collection(db, getSubmissionsQueuePath()), (snapshot) => {
-                window.adminSubmissions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                window.adminSubmissions.sort((a, b) => b.submitted_at.toMillis() - a.submitted_at.toMillis());
-                renderApp();
-            }, (error) => console.error("Error fetching admin submissions:", error));
+        // Set initial admin status
+        isAdmin = (userId === ADMIN_USER_ID);
+        adminUserIds = [];
+
+        // Load admin list from Firestore (non-blocking)
+        try {
+            onSnapshot(doc(db, getAdminDocPath()), (snapshot) => {
+                if (snapshot.exists()) {
+                    adminUserIds = snapshot.data().user_ids || [];
+                } else {
+                    adminUserIds = [];
+                }
+                // Check if current user is admin (primary admin or in the list)
+                isAdmin = (userId === ADMIN_USER_ID) || adminUserIds.includes(userId);
+                console.log('Admin status updated:', { userId, isAdmin, adminUserIds });
+                renderApp(); // Re-render to show/hide admin portal
+            }, (error) => {
+                console.warn('Admin list not found - only primary admin will have access:', error);
+                // Fallback to primary admin only
+                isAdmin = (userId === ADMIN_USER_ID);
+                adminUserIds = [];
+                renderApp(); // Still render even on error
+            });
+        } catch (e) {
+            console.warn('Could not set up admin listener:', e);
+            renderApp(); // Still render even on exception
         }
 
-        // 1. Events & Calendar (Public)
+        // New: Admin listener for all submissions (only fetched for admin users)
+        const checkAndSetupAdminListener = () => {
+            if (userId === ADMIN_USER_ID || adminUserIds.includes(userId)) {
+                // FIX: Read from the new global submissions queue, NOT the user-specific path
+                onSnapshot(collection(db, getSubmissionsQueuePath()), (snapshot) => {
+                    window.adminSubmissions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    window.adminSubmissions.sort((a, b) => b.submitted_at.toMillis() - a.submitted_at.toMillis());
+                    renderApp();
+                }, (error) => console.error("Error fetching admin submissions:", error));
+            }
+        };
+        // Initial check
+        setTimeout(checkAndSetupAdminListener, 100);
 
         // 1. Events & Calendar (Public)
         onSnapshot(collection(db, getPublicCollectionPath('events')), (snapshot) => {
@@ -545,8 +578,8 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
             { path: '/submit-content', key: 'nav_submit' },
         ];
         
-        // Add Admin Portal link if the current user is the admin
-        if (userId === ADMIN_USER_ID) {
+        // Add Admin Portal link if the current user is an admin
+        if (isAdmin) {
              navItems.push({ path: '/admin-portal', key: 'nav_admin' });
         }
 
@@ -1472,6 +1505,88 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                 showModal('Error deleting item: ' + error.message, 'error');
             });
     };
+    // Admin Management Functions (Only for primary admin)
+    window.addAdmin = async () => {
+        if (userId !== ADMIN_USER_ID) {
+            showModal('Only the primary admin can add other admins.', 'error');
+            return;
+        }
+
+        const newAdminId = document.getElementById('new-admin-id')?.value.trim();
+        if (!newAdminId) {
+            showModal('Please enter a valid User ID.', 'warning');
+            return;
+        }
+
+        if (newAdminId === ADMIN_USER_ID) {
+            showModal('This user is already the primary admin.', 'info');
+            return;
+        }
+
+        if (adminUserIds.includes(newAdminId)) {
+            showModal('This user is already an admin.', 'info');
+            return;
+        }
+
+        const confirmed = await showModal(
+            `Add ${newAdminId} as an admin?\n\nThey will be able to approve/reject submissions and manage all content.`,
+            'confirm',
+            { confirmText: 'Add Admin', cancelText: 'Cancel', showCancel: true }
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const adminDocRef = doc(db, getAdminDocPath());
+            const adminDoc = await getDoc(adminDocRef);
+            
+            if (adminDoc.exists()) {
+                await updateDoc(adminDocRef, {
+                    user_ids: [...adminUserIds, newAdminId]
+                });
+            } else {
+                await setDoc(adminDocRef, {
+                    user_ids: [newAdminId]
+                });
+            }
+
+            document.getElementById('new-admin-id').value = '';
+            showModal('Admin added successfully!', 'success');
+        } catch (error) {
+            console.error('Error adding admin:', error);
+            showModal(`Error adding admin: ${error.message}`, 'error');
+        }
+    };
+
+    window.removeAdmin = async (adminIdToRemove) => {
+        if (userId !== ADMIN_USER_ID) {
+            showModal('Only the primary admin can remove other admins.', 'error');
+            return;
+        }
+
+        const confirmed = await showModal(
+            `Remove admin access for:\n${adminIdToRemove}?\n\nThey will no longer be able to access the admin portal.`,
+            'confirm',
+            { confirmText: 'Remove', cancelText: 'Cancel', showCancel: true }
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const adminDocRef = doc(db, getAdminDocPath());
+            const newAdminList = adminUserIds.filter(uid => uid !== adminIdToRemove);
+            
+            await updateDoc(adminDocRef, {
+                user_ids: newAdminList
+            });
+
+            showModal('Admin removed successfully!', 'success');
+        } catch (error) {
+            console.error('Error removing admin:', error);
+            showModal(`Error removing admin: ${error.message}`, 'error');
+        }
+    };
+
     // Tab switching for admin portal
     window.switchAdminTab = (tabName) => {
         console.log("Switching to tab:", tabName);
@@ -1501,8 +1616,8 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
         }
     };
     const renderAdminPortal = () => {
-        if (userId !== ADMIN_USER_ID) {
-            return `<div class="p-20 text-center text-red-500">Access Denied. Only the Admin can view this page.</div>`;
+        if (!isAdmin) {
+            return `<div class="p-20 text-center text-red-500">Access Denied. Only authorized admins can view this page.</div>`;
         }
 
         console.log("=== RENDERING ADMIN PORTAL ===");
@@ -1585,23 +1700,28 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
             <p class="text-lg text-gray-600 mb-8 max-w-4xl">Review submissions and manage published content across all public pages.</p>
 
             <!-- Tab Navigation -->
-            <div class="mb-8 border-b border-gray-200">
-                <nav class="flex space-x-8" aria-label="Tabs">
-                    <button onclick="window.switchAdminTab('submissions')" id="tab-submissions" class="admin-tab-active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                        Pending Submissions (${submissions.filter(s => s.status === 'pending').length})
+            <div class="mb-8 border-b border-gray-200 overflow-x-auto">
+                <nav class="flex flex-wrap gap-2 md:gap-4 md:space-x-0" aria-label="Tabs">
+                    <button onclick="window.switchAdminTab('submissions')" id="tab-submissions" class="admin-tab-active py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm flex-shrink-0">
+                        Pending (${submissions.filter(s => s.status === 'pending').length})
                     </button>
-                    <button onclick="window.switchAdminTab('events')" id="tab-events" class="admin-tab-inactive whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                        Published Events (${events.length})
+                    <button onclick="window.switchAdminTab('events')" id="tab-events" class="admin-tab-inactive py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm flex-shrink-0">
+                        Events (${events.length})
                     </button>
-                    <button onclick="window.switchAdminTab('volunteer')" id="tab-volunteer" class="admin-tab-inactive whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                        Volunteer Needs (${volunteerNeeds.length})
+                    <button onclick="window.switchAdminTab('volunteer')" id="tab-volunteer" class="admin-tab-inactive py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm flex-shrink-0">
+                        Volunteers (${volunteerNeeds.length})
                     </button>
-                    <button onclick="window.switchAdminTab('civic')" id="tab-civic" class="admin-tab-inactive whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                        Civic Issues (${civicIssues.length})
+                    <button onclick="window.switchAdminTab('civic')" id="tab-civic" class="admin-tab-inactive py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm flex-shrink-0">
+                        Issues (${civicIssues.length})
                     </button>
-                    <button onclick="window.switchAdminTab('businesses')" id="tab-businesses" class="admin-tab-inactive whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                        Businesses (${localBusinesses.length})
+                    <button onclick="window.switchAdminTab('businesses')" id="tab-businesses" class="admin-tab-inactive py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm flex-shrink-0">
+                        Business (${localBusinesses.length})
                     </button>
+                    ${userId === ADMIN_USER_ID ? `
+                    <button onclick="window.switchAdminTab('admins')" id="tab-admins" class="admin-tab-inactive py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm flex-shrink-0">
+                        Admins (${adminUserIds.length + 1})
+                    </button>
+                    ` : ''}
                 </nav>
             </div>
 
@@ -1709,6 +1829,54 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                         ${localBusinesses.length > 0 ? localBusinesses.map(biz => renderPublishedItem(biz, 'business')).join('') : '<p class="text-center text-gray-500 lg:col-span-2">No published businesses.</p>'}
                     </div>
                 </div>
+
+                <!-- Admins Tab (Only visible to primary admin) -->
+                ${userId === ADMIN_USER_ID ? `
+                <div id="content-admins" class="admin-tab-content">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Manage Administrators</h2>
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6">
+                        <p class="text-sm text-yellow-800"><strong>⚠️ Important:</strong> Only grant admin access to trusted individuals. Admins can approve/reject submissions, edit content, and manage all published data.</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Add New Admin -->
+                        <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-green-500">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">➕ Add New Admin</h3>
+                            <p class="text-sm text-gray-600 mb-4">Enter the User ID of the person you want to grant admin privileges. Users can find their ID at the bottom of the page in the footer.</p>
+                            <div class="space-y-3">
+                                <input type="text" id="new-admin-id" placeholder="Enter User ID (e.g., abc123xyz...)" class="w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3">
+                                <button onclick="window.addAdmin()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-5 rounded-lg transition-colors shadow-lg">
+                                    Add Admin
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Current Admins List -->
+                        <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-indigo-500">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">👥 Current Admins (${adminUserIds.length + 1})</h3>
+                            <ul class="space-y-2">
+                                <li class="flex justify-between items-center bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+                                    <div class="flex-1 min-w-0">
+                                        <span class="font-mono text-xs text-gray-700 block truncate">${ADMIN_USER_ID}</span>
+                                        <span class="text-indigo-600 font-semibold text-xs">Primary Admin ${ADMIN_USER_ID === userId ? '(You)' : ''}</span>
+                                    </div>
+                                    <span class="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded">OWNER</span>
+                                </li>
+                                ${adminUserIds.map(uid => `
+                                    <li class="flex justify-between items-center bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                                        <div class="flex-1 min-w-0">
+                                            <span class="font-mono text-xs text-gray-700 block truncate">${uid}</span>
+                                            ${uid === userId ? '<span class="text-blue-600 font-semibold text-xs">(You)</span>' : ''}
+                                        </div>
+                                        <button onclick="window.removeAdmin('${uid}')" class="text-red-600 hover:text-red-800 text-xs font-bold px-3 py-1 rounded border border-red-600 hover:bg-red-50 transition-colors">
+                                            REMOVE
+                                        </button>
+                                    </li>
+                                `).join('')}
+                                ${adminUserIds.length === 0 ? '<li class="text-center text-gray-500 italic py-4">No additional admins added yet.</li>' : ''}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
             </div>
         `;
     };
