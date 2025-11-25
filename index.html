@@ -933,63 +933,67 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
             }).join('');
         };
 
-        // Central Submission Handler
-        const handleSubmit = async (event) => {
-            event.preventDefault();
-            const form = event.target;
-            const formData = new FormData(form);
-            const submissionType = formData.get('submission_type');
-            const contactName = formData.get('field_contact_name');
-            const contactEmail = formData.get('field_contact_email');
+            // Central Submission Handler
+            const handleSubmit = async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
 
-            // Simple required field check (does not validate conditional fields perfectly, but catches universals)
-            if (!submissionType || !contactName || !contactEmail) {
-                showModal(t('required_field_error'), 'error');
-                return;
-            }
+    const submissionType = formData.get('submission_type');
+    const contactName = formData.get('field_contact_name');
+    const contactEmail = formData.get('field_contact_email');
+    
+    // Simple required field check (does not validate conditional fields perfectly, but catches universals)
+    if (!submissionType || !contactName || !contactEmail) {
+        showModal(t('required_field_error'), 'error');
+        return;
+    }
 
-            // IMPORTANT: Clear previous errors
-            document.getElementById('submission-error-message').classList.add('hidden');
-            document.getElementById('submission-error-message').textContent = '';
+    const payload = {};
+    // Gather all fields that exist in the form
+    for (const [key, value] of formData.entries()) {
+        payload[key] = value;
+    }
 
+    // Remove universal fields from payload
+    delete payload.submission_type;
+    delete payload.field_contact_name;
+    delete payload.field_contact_email;
 
-            const payload = {};
-            // Gather all fields that exist in the form
-            for (const [key, value] of formData.entries()) {
-                payload[key] = value;
-            }
+    const submitButton = document.getElementById('submit-button');
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Submitting...';
+    }
 
-            // Remove universal fields from payload
-            delete payload.submission_type;
-            delete payload.field_contact_name;
-            delete payload.field_contact_email;
+    try {
+        // FIX: Save to the new global submissions queue collection, NOT the user's private path
+        await addDoc(collection(db, getSubmissionsQueuePath()), {
+            submission_type: submissionType,
+            contact_name: contactName,
+            contact_email: contactEmail,
+            // The submitting user's ID is still tracked for reference
+            submitted_user_id: userId,
+            payload: JSON.stringify(payload), // Store dynamic data as JSON string
+            status: 'pending',
+            submitted_at: Timestamp.now(),
+        });
 
-            document.getElementById('submit-button').disabled = true;
-            document.getElementById('submit-button').textContent = 'Submitting...';
+        await showModal(t('submission_success'), 'success');
+        form.reset();
+        document.getElementById('conditional-fields-container').innerHTML = '';
 
-            try {
-                // FIX: Save to the new global submissions queue collection, NOT the user's private path
-                await addDoc(collection(db, getSubmissionsQueuePath()), {
-                    submission_type: submissionType,
-                    contact_name: contactName,
-                    contact_email: contactEmail,
-                    // The submitting user's ID is still tracked for reference
-                    submitted_user_id: userId, 
-                    payload: JSON.stringify(payload), // Store dynamic data as JSON string
-                    status: 'pending',
-                    submitted_at: Timestamp.now(),
-                });
-                await showModal(t('submission_success'), 'success');
-                form.reset();
-                document.getElementById('conditional-fields-container').innerHTML = '';
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                showModal(t('submission_error'), 'error');
-            } finally {
-                document.getElementById('submit-button').disabled = false;
-                document.getElementById('submit-button').textContent = t('submit_button');
-            }
-        };
+    } catch (e) {
+        console.error("Error adding document: ", e);
+        showModal(t('submission_error'), 'error');
+
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = t('submit_button');
+        }
+    }
+};
 
         // Attach event listener for dynamic field rendering
         setTimeout(() => {
@@ -1194,6 +1198,21 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
         const currentDescEn = item.desc_en || item.details_en || item.body_en || '';
         const currentDescBn = item.desc_bn || item.details_bn || item.body_bn || '';
         const currentLocation = item.location || '';
+        const currentCategory = item.category || '';
+        const currentSkills = item.skills_req || '';
+        const currentImageUrl = item.image_url || '';
+        
+        // Format datetime for input field if available
+        let currentDateTimeValue = '';
+        if (item.event_datetime) {
+            const date = new Date(item.event_datetime.toMillis());
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            currentDateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
         
         // Create modal
         const modal = document.createElement('div');
@@ -1231,13 +1250,42 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                             class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">${currentDescBn}</textarea>
                     </div>
                     
-                    ${type !== 'business' ? `
+                    ${(type === 'event' || type === 'volunteer' || type === 'civic') ? `
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Date & Time</label>
+                        <input type="datetime-local" id="edit-datetime" value="${currentDateTimeValue}" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+                    </div>
+                    ` : ''}
+                    
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Location</label>
                         <input type="text" id="edit-location" value="${currentLocation.replace(/"/g, '&quot;')}" 
                             class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
                     </div>
+                    
+                    ${type === 'business' ? `
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Category / Service Type</label>
+                        <input type="text" id="edit-category" value="${currentCategory.replace(/"/g, '&quot;')}" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+                    </div>
                     ` : ''}
+                    
+                    ${type === 'volunteer' ? `
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Skills Required</label>
+                        <input type="text" id="edit-skills" value="${currentSkills.replace(/"/g, '&quot;')}" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+                    </div>
+                    ` : ''}
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Image URL (Optional)</label>
+                        <input type="text" id="edit-image-url" value="${currentImageUrl.replace(/"/g, '&quot;')}" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                            placeholder="Paste image or logo URL">
+                    </div>
                     
                     <div class="flex space-x-3 pt-4 border-t">
                         <button type="submit" 
@@ -1267,11 +1315,15 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
             const newDescEn = document.getElementById('edit-desc-en').value.trim();
             const newDescBn = document.getElementById('edit-desc-bn').value.trim();
             const newLocation = document.getElementById('edit-location')?.value.trim() || '';
+            const newCategory = document.getElementById('edit-category')?.value.trim() || '';
+            const newSkills = document.getElementById('edit-skills')?.value.trim() || '';
+            const newImageUrl = document.getElementById('edit-image-url')?.value.trim() || '';
+            const newDateTimeStr = document.getElementById('edit-datetime')?.value || '';
             
-            if (!currentTitleEn) {
-            showModal('Title (English) is required', 'warning');
-            return;
-        }
+            if (!newTitleEn) {
+                showModal('Title (English) is required', 'warning');
+                return;
+            }
             
             const updates = {
                 title_en: newTitleEn,
@@ -1294,8 +1346,37 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                 updates.details_bn = newDescBn || newDescEn;
             }
             
-            if (newLocation && type !== 'business') {
+            // Add location if provided
+            if (newLocation) {
                 updates.location = newLocation;
+            }
+            
+            // Add category for business type
+            if (type === 'business' && newCategory) {
+                updates.category = newCategory;
+            }
+            
+            // Add skills for volunteer type
+            if (type === 'volunteer' && newSkills) {
+                updates.skills_req = newSkills;
+            }
+            
+            // Add image URL if provided
+            if (newImageUrl) {
+                updates.image_url = newImageUrl;
+            }
+            
+            // Handle datetime update for events, volunteer needs, and civic issues
+            if ((type === 'event' || type === 'volunteer' || type === 'civic') && newDateTimeStr) {
+                try {
+                    const dateObj = new Date(newDateTimeStr);
+                    if (!isNaN(dateObj.getTime())) {
+                        updates.event_datetime = Timestamp.fromDate(dateObj);
+                    }
+                } catch (error) {
+                    console.warn('Error parsing datetime:', error);
+                    // Continue with other updates if datetime parsing fails
+                }
             }
             
             console.log("Updating with:", updates);
@@ -1320,7 +1401,7 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                 
             } catch (error) {
                 console.error('Error updating item:', error);
-                alert('❌ Error updating item: ' + error.message);
+                showModal('❌ Error updating item: ' + error.message, 'error');
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
             }
@@ -1530,7 +1611,70 @@ window.publishedItemsRegistry = {}; // NEW: Registry for quick item lookup
                 <div id="content-submissions" class="admin-tab-content">
                     <h2 class="text-3xl font-bold text-gray-800 mb-6">Pending Submissions</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        ${submissions.length > 0 ? submissionHtml : '<p class="text-center text-gray-500 lg:col-span-2">No submissions to review.</p>'}
+                        ${submissions.filter(s => s.status === 'pending').length > 0 ? submissions.filter(s => s.status === 'pending').map(sub => {
+            const date = new Date(sub.submitted_at.toMillis()).toLocaleString();
+            const payload = JSON.parse(sub.payload);
+            const statusColor = sub.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                                sub.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800';
+
+            // --- NEW: Dynamic Summary Content ---
+            let summaryContent = '';
+            switch(sub.submission_type) {
+                case '4. I Want To Volunteer':
+                    const skills = payload.field_skills || 'None listed';
+                    const whyHelp = payload.field_why_help || 'No reason provided';
+                    summaryContent = `
+                        <p class="text-gray-700 mb-1"><strong>Skills Offered:</strong> ${skills}</p>
+                        <p class="text-gray-700 mb-4"><strong>Why Help:</strong> ${whyHelp.substring(0, 100)}${whyHelp.length > 100 ? '...' : ''}</p>
+                    `;
+                    break;
+                case '1. Event Submission':
+                case '2. Local Civic Issue':
+                case '3. Volunteer Need (Post)':
+                case '8. Local Spotlight Nomination':
+                    const title = payload.field_content_title || 'No Title Provided';
+                    const body = payload.field_content_body || 'No description available';
+                    summaryContent = `
+                        <h4 class="text-lg font-semibold text-gray-800 mb-2">${title}</h4>
+                        <p class="text-gray-700 mb-4 line-clamp-2">${body.substring(0, 150)}${body.length > 150 ? '...' : ''}</p>
+                    `;
+                    break;
+                default:
+                    summaryContent = `<p class="text-gray-600 italic mb-4">No structured summary defined for this type.</p>`;
+                    break;
+            }
+            // --- END NEW: Dynamic Summary Content ---
+
+            return `
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500 mb-4">
+                    <div class="flex justify-between items-center mb-3 border-b pb-2">
+                        <h3 class="text-xl font-bold text-gray-800">${sub.submission_type}</h3>
+                        <span class="px-3 py-1 text-sm font-semibold rounded-full ${statusColor}">${sub.status}</span>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-1"><strong>Submitted By:</strong> ${sub.contact_name} (${sub.contact_email})</p>
+                    <p class="text-sm text-gray-500 mb-4"><strong>Date:</strong> ${date} | <strong>User ID:</strong> ${sub.submitted_user_id}</p>
+                    
+                    <div class="my-4 p-3 bg-gray-50 rounded-lg">
+                        ${summaryContent}
+                    </div>
+                    
+                    ${sub.status === 'pending' ? `
+                        <div class="mt-4 flex space-x-3">
+                            <button 
+                                onclick="console.log('Approve clicked'); if(window.handleApprove) { window.handleApprove('${sub.id}'); } else { alert('Handler not found'); }"
+                                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full transition-colors text-sm cursor-pointer">
+                                Approve & Publish
+                            </button>
+                            <button 
+                                onclick="console.log('Reject clicked'); if(window.handleReject) { window.handleReject('${sub.id}'); } else { alert('Handler not found'); }"
+                                class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full transition-colors text-sm cursor-pointer">
+                                Reject
+                            </button>
+                        </div>
+                    ` : `<p class="mt-4 text-sm text-gray-600 italic">Review complete on ${new Date(sub.review_date?.toMillis()).toLocaleString()}.</p>`}
+                </div>
+            `;
+        }).join('') : '<p class="text-center text-gray-500 lg:col-span-2">No submissions to review.</p>'}
                     </div>
                 </div>
 
